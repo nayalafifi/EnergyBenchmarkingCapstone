@@ -65,10 +65,18 @@ function fannkuchredux(n) {
         }
         checkSum += (idx % 2 === 0) ? flips : -flips;
     }
-    return checkSum + "\nPfannkuchen(" + n + ") = " + maxFlips;
+    return maxFlips;
 }
 
-// Entry point for Android
-function runFannkuchReduxBenchmark(n) {
-    return fannkuchredux(n);
+// Entry point for Android with iteration loop and timing
+function runFannkuchReduxBenchmark(n, iterations) {
+    var startTime = Date.now();
+
+    // Run specified number of iterations to match Java
+    for (var iter = 0; iter < iterations; iter++) {
+        fannkuchredux(n);
+    }
+
+    var duration = Date.now() - startTime;
+    return "FannkuchRedux JS completed: " + duration + "ms (" + iterations + " iterations)";
 }

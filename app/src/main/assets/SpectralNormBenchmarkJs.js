@@ -22,25 +22,26 @@ function Atu(n, u, v) {
     }
 }
 
-function runSpectralNormBenchmark(n) {
-    var u = [];
-    var v = [];
-    var tmp = [];
-    for (var i = 0; i < n; i++) u[i] = 1;
-    for (var i = 0; i < n; i++) v[i] = 0;
-    for (var i = 0; i < n; i++) tmp[i] = 0;
+function runSpectralNormBenchmark(n, iterations) {
+    var startTime = Date.now();
 
-    for (var iter = 0; iter < 10; iter++) {
-        Au(n, u, tmp);
-        Atu(n, tmp, v);
-        Au(n, v, tmp);
-        Atu(n, tmp, u);
+    // Run specified number of iterations
+    for (var iter = 0; iter < iterations; iter++) {
+        var u = [];
+        var v = [];
+        var tmp = [];
+        for (var i = 0; i < n; i++) u[i] = 1;
+        for (var i = 0; i < n; i++) v[i] = 0;
+        for (var i = 0; i < n; i++) tmp[i] = 0;
+
+        for (var i = 0; i < 10; i++) {
+            Au(n, u, tmp);
+            Atu(n, tmp, v);
+            Au(n, v, tmp);
+            Atu(n, tmp, u);
+        }
     }
 
-    var vBv = 0, vv = 0;
-    for (var i = 0; i < n; i++) {
-        vBv += u[i] * v[i];
-        vv += v[i] * v[i];
-    }
-    return (Math.sqrt(vBv / vv)).toFixed(9);
+    var duration = Date.now() - startTime;
+    return "SpectralNorm JS completed: " + duration + "ms (" + iterations + " iterations)";
 }

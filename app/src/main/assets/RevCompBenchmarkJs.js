@@ -1,63 +1,68 @@
-// DNA complement map (IUPAC codes)
-var complement = {
-    'A': 'T', 'a': 't',
-    'C': 'G', 'c': 'g',
-    'G': 'C', 'g': 'c',
-    'T': 'A', 't': 'a',
-    'U': 'A', 'u': 'a',
-    'M': 'K', 'm': 'k',
-    'R': 'Y', 'r': 'y',
-    'W': 'W', 'w': 'w',
-    'S': 'S', 's': 's',
-    'Y': 'R', 'y': 'r',
-    'K': 'M', 'k': 'm',
-    'V': 'B', 'v': 'b',
-    'H': 'D', 'h': 'd',
-    'D': 'H', 'd': 'h',
-    'B': 'V', 'b': 'v',
-    'N': 'N', 'n': 'n'
-};
+var map = {};
 
-// Returns the reverse complement of a DNA sequence
-function reverseComplement(seq) {
-    var out = '';
-    for (var i = seq.length - 1; i >= 0; i--) {
-        var c = seq[i];
-        out += complement[c] || c;
+function initializeMap() {
+    var from = "ACBDGHKMNSRUTWVYacbdghkmnsrutwvy";
+    var to = "TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR";
+    
+    for (var i = 0; i < from.length; i++) {
+        map[from[i]] = to[i];
     }
-    return out;
+    map['\n'] = '\n';
+    map['>'] = '>';
 }
 
-// Main entry point for Android: takes a FASTA string, returns reverse-complemented FASTA
-function runRevCompBenchmark(fastaInput) {
-    var lines = fastaInput.split('\n');
-    var output = '';
-    var seq = '';
-    var header = '';
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-        if (line.startsWith('>')) {
-            // If we have a previous sequence, output its reverse complement
-            if (seq.length > 0) {
-                var rev = reverseComplement(seq);
-                // Output in lines of 60 chars
-                for (var j = 0; j < rev.length; j += 60) {
-                    output += rev.substr(j, 60) + '\n';
-                }
-                seq = '';
+function reverseSection(buf, start, end) {
+    while (start < end) {
+        if (buf[start] === '\n') {
+            start++;
+            continue;
+        }
+        if (buf[end] === '\n') {
+            end--;
+            continue;
+        }
+        var temp = buf[start];
+        buf[start] = buf[end];
+        buf[end] = temp;
+        start++;
+        end--;
+    }
+}
+
+function runRevCompBenchmark(input, iterations) {
+    var startTime = Date.now();
+    
+    initializeMap();
+    
+    // Run specified number of iterations
+    for (var iter = 0; iter < iterations; iter++) {
+        var buf = input.split('');
+        
+        // Map complement
+        for (var i = 0; i < buf.length; i++) {
+            var b = buf[i];
+            if (b !== '\n' && b !== '>') {
+                buf[i] = map[b] || b;
             }
-            header = line;
-            output += header + '\n';
-        } else {
-            seq += line.trim();
+        }
+        
+        // Reverse each sequence
+        var seqStart = 0;
+        for (var i = 0; i < buf.length; i++) {
+            if (buf[i] === '>') {
+                if (i > seqStart) {
+                    reverseSection(buf, seqStart, i - 1);
+                }
+                seqStart = i;
+                while (i < buf.length && buf[i] !== '\n') i++;
+                seqStart = i + 1;
+            }
+        }
+        if (seqStart < buf.length) {
+            reverseSection(buf, seqStart, buf.length - 1);
         }
     }
-    // Output last sequence
-    if (seq.length > 0) {
-        var rev = reverseComplement(seq);
-        for (var j = 0; j < rev.length; j += 60) {
-            output += rev.substr(j, 60) + '\n';
-        }
-    }
-    return output;
+    
+    var duration = Date.now() - startTime;
+    return "RevComp JS completed: " + duration + "ms (" + iterations + " iterations)";
 }

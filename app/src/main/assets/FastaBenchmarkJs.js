@@ -1,8 +1,10 @@
 var last = 42, A = 3877, C = 29573, M = 139968;
+
 function rand(max) {
   last = (last * A + C) % M;
   return (max * last) / M;
 }
+
 var ALU =
   "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG" +
   "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA" +
@@ -11,13 +13,16 @@ var ALU =
   "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG" +
   "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" +
   "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+
 var IUB = {
   a: 0.27, c: 0.12, g: 0.12, t: 0.27,
   B: 0.02, D: 0.02, H: 0.02, K: 0.02, M: 0.02, N: 0.02, R: 0.02, S: 0.02, V: 0.02, W: 0.02, Y: 0.02
 };
+
 var HomoSap = {
   a: 0.302954942668, c: 0.1979883004921, g: 0.1975473066391, t: 0.3015094502008
 };
+
 function makeCumulative(table) {
   var last = null;
   for (var c in table) {
@@ -25,25 +30,23 @@ function makeCumulative(table) {
     last = c;
   }
 }
+
 function fastaRepeat(n, seq) {
-  var seqi = 0, lenOut = 60, output = "";
+  var seqi = 0, lenOut = 60;
   while (n > 0) {
     if (n < lenOut) lenOut = n;
     if (seqi + lenOut < seq.length) {
-      output += seq.substring(seqi, seqi + lenOut) + "\n";
       seqi += lenOut;
     } else {
       var s = seq.substring(seqi);
       seqi = lenOut - s.length;
-      output += s + seq.substring(0, seqi) + "\n";
     }
     n -= lenOut;
   }
-  return output;
 }
+
 function fastaRandom(n, table) {
-  var line = new Array(60), output = "";
-  makeCumulative(table);
+  var line = new Array(60);
   while (n > 0) {
     if (n < line.length) line = new Array(n);
     for (var i = 0; i < line.length; i++) {
@@ -55,17 +58,24 @@ function fastaRandom(n, table) {
         }
       }
     }
-    output += line.join("") + "\n";
     n -= line.length;
   }
-  return output;
 }
-function runFastaBenchmark(n) {
-  var output = ">ONE Homo sapiens alu\n";
-  output += fastaRepeat(2 * n, ALU);
-  output += ">TWO IUB ambiguity codes\n";
-  output += fastaRandom(3 * n, IUB);
-  output += ">THREE Homo sapiens frequency\n";
-  output += fastaRandom(5 * n, HomoSap);
-  return output;
+
+function runFastaBenchmark(n, iterations) {
+  var startTime = Date.now();
+
+  makeCumulative(IUB);
+  makeCumulative(HomoSap);
+
+  // Run specified number of iterations
+  for (var iter = 0; iter < iterations; iter++) {
+    last = 42; // Reset seed each iteration for consistency
+    fastaRepeat(2 * n, ALU);
+    fastaRandom(3 * n, IUB);
+    fastaRandom(5 * n, HomoSap);
+  }
+
+  var duration = Date.now() - startTime;
+  return "Fasta JS completed: " + duration + "ms (" + iterations + " iterations)";
 }

@@ -11,6 +11,7 @@ function Body(x, y, z, vx, vy, vz, mass) {
   this.vz = vz;
   this.mass = mass;
 }
+
 function Jupiter() {
   return new Body(
     4.8414314424647209,
@@ -22,6 +23,7 @@ function Jupiter() {
     9.54791938424326609e-4 * SOLAR_MASS
   );
 }
+
 function Saturn() {
   return new Body(
     8.34336671824457987,
@@ -33,6 +35,7 @@ function Saturn() {
     2.85885980666130812e-4 * SOLAR_MASS
   );
 }
+
 function Uranus() {
   return new Body(
     1.2894369562139131e1,
@@ -44,6 +47,7 @@ function Uranus() {
     4.36624404335156298e-5 * SOLAR_MASS
   );
 }
+
 function Neptune() {
   return new Body(
     1.53796971148509165e1,
@@ -55,43 +59,46 @@ function Neptune() {
     5.15138902046611451e-5 * SOLAR_MASS
   );
 }
+
 function Sun() {
   return new Body(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, SOLAR_MASS);
 }
+
 function offsetMomentum(bodies) {
-  let px = 0, py = 0, pz = 0;
-  const size = bodies.length;
-  for (let i = 0; i < size; i++) {
-    const body = bodies[i];
-    const mass = body.mass;
+  var px = 0, py = 0, pz = 0;
+  var size = bodies.length;
+  for (var i = 0; i < size; i++) {
+    var body = bodies[i];
+    var mass = body.mass;
     px += body.vx * mass;
     py += body.vy * mass;
     pz += body.vz * mass;
   }
-  const body = bodies[0];
+  var body = bodies[0];
   body.vx = -px / SOLAR_MASS;
   body.vy = -py / SOLAR_MASS;
   body.vz = -pz / SOLAR_MASS;
 }
+
 function advance(bodies, dt) {
-  const size = bodies.length;
-  for (let i = 0; i < size; i++) {
-    const bodyi = bodies[i];
-    let vxi = bodyi.vx;
-    let vyi = bodyi.vy;
-    let vzi = bodyi.vz;
-    for (let j = i + 1; j < size; j++) {
-      const bodyj = bodies[j];
-      const dx = bodyi.x - bodyj.x;
-      const dy = bodyi.y - bodyj.y;
-      const dz = bodyi.z - bodyj.z;
-      const d2 = dx * dx + dy * dy + dz * dz;
-      const mag = dt / (d2 * Math.sqrt(d2));
-      const massj = bodyj.mass;
+  var size = bodies.length;
+  for (var i = 0; i < size; i++) {
+    var bodyi = bodies[i];
+    var vxi = bodyi.vx;
+    var vyi = bodyi.vy;
+    var vzi = bodyi.vz;
+    for (var j = i + 1; j < size; j++) {
+      var bodyj = bodies[j];
+      var dx = bodyi.x - bodyj.x;
+      var dy = bodyi.y - bodyj.y;
+      var dz = bodyi.z - bodyj.z;
+      var d2 = dx * dx + dy * dy + dz * dz;
+      var mag = dt / (d2 * Math.sqrt(d2));
+      var massj = bodyj.mass;
       vxi -= dx * massj * mag;
       vyi -= dy * massj * mag;
       vzi -= dz * massj * mag;
-      const massi = bodyi.mass;
+      var massi = bodyi.mass;
       bodyj.vx += dx * massi * mag;
       bodyj.vy += dy * massi * mag;
       bodyj.vz += dz * massi * mag;
@@ -100,43 +107,28 @@ function advance(bodies, dt) {
     bodyi.vy = vyi;
     bodyi.vz = vzi;
   }
-  for (let i = 0; i < size; i++) {
-    const body = bodies[i];
+  for (var i = 0; i < size; i++) {
+    var body = bodies[i];
     body.x += dt * body.vx;
     body.y += dt * body.vy;
     body.z += dt * body.vz;
   }
 }
-function energy(bodies) {
-  let e = 0;
-  const size = bodies.length;
-  for (let i = 0; i < size; i++) {
-    const bodyi = bodies[i];
-    e +=
-      0.5 *
-      bodyi.mass *
-      (bodyi.vx * bodyi.vx + bodyi.vy * bodyi.vy + bodyi.vz * bodyi.vz);
-    for (let j = i + 1; j < size; j++) {
-      const bodyj = bodies[j];
-      const dx = bodyi.x - bodyj.x;
-      const dy = bodyi.y - bodyj.y;
-      const dz = bodyi.z - bodyj.z;
-      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      e -= (bodyi.mass * bodyj.mass) / distance;
+
+// Entry point for Android with iteration loop and timing
+function runNBodyBenchmark(n, iterations) {
+  var startTime = Date.now();
+
+  // Run specified number of iterations
+  for (var iter = 0; iter < iterations; iter++) {
+    var bodies = [Sun(), Jupiter(), Saturn(), Uranus(), Neptune()];
+    offsetMomentum(bodies);
+
+    for (var i = 0; i < n; i++) {
+      advance(bodies, 0.01);
     }
   }
-  return e;
-}
 
-// Entry point for Android
-function runNBodyBenchmark(n) {
-  const bodies = [Sun(), Jupiter(), Saturn(), Uranus(), Neptune()];
-  offsetMomentum(bodies);
-  var output = "";
-  output += energy(bodies).toFixed(9) + "\n";
-  for (let i = 0; i < n; i++) {
-    advance(bodies, 0.01);
-  }
-  output += energy(bodies).toFixed(9) + "\n";
-  return output;
+  var duration = Date.now() - startTime;
+  return "NBody JS completed: " + duration + "ms (" + iterations + " iterations)";
 }
