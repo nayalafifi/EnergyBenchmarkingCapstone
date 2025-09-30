@@ -15,27 +15,28 @@ function bottomUpTree(depth) {
         : new TreeNode(null, null);
 }
 
-// Main entry point for Android
-function runBinaryTreesBenchmark(maxDepth)
-{
+// Main entry point for Android - with iteration loop and timing
+function runBinaryTreesBenchmark(maxDepth, iterations) {
+    var startTime = Date.now();
+
     maxDepth = Math.max(6, maxDepth);
-    var stretchDepth = maxDepth + 1;
-    var output = "";
 
-    var check = itemCheck(bottomUpTree(stretchDepth));
-    output += "stretch tree of depth " + stretchDepth + "\t check: " + check + "\n";
+    // Run specified number of iterations to match Java
+    for (var iter = 0; iter < iterations; iter++) {
+        var stretchDepth = maxDepth + 1;
+        var check = itemCheck(bottomUpTree(stretchDepth));
 
-    var longLivedTree = bottomUpTree(maxDepth);
+        var longLivedTree = bottomUpTree(maxDepth);
 
-    for (var depth = 4; depth <= maxDepth; depth += 2) {
-        var iterations = 1 << (maxDepth - depth + 4);
-        var check = 0;
-        for (var i = 0; i < iterations; i++) {
-            check += itemCheck(bottomUpTree(depth));
+        for (var depth = 4; depth <= maxDepth; depth += 2) {
+            var iterCount = 1 << (maxDepth - depth + 4);
+            var check = 0;
+            for (var i = 0; i < iterCount; i++) {
+                check += itemCheck(bottomUpTree(depth));
+            }
         }
-        output += iterations + "\t trees of depth " + depth + "\t check: " + check + "\n";
     }
 
-    output += "long lived tree of depth " + maxDepth + "\t check: " + itemCheck(longLivedTree) + "\n";
-    return output;
+    var duration = Date.now() - startTime;
+    return "BinaryTrees JS completed: " + duration + "ms (" + iterations + " iterations)";
 }
