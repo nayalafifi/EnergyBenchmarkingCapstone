@@ -27,13 +27,16 @@ public class MainActivity extends ComponentActivity {
         scrollView.addView(layout);
         setContentView(scrollView);
 
+        String benchmarkFromIntent = getIntent().getStringExtra("BENCHMARK");
+        String selectedBenchmark = benchmarkFromIntent != null ? benchmarkFromIntent : "BinaryTreesJava";
+
         // Run benchmark on BACKGROUND THREAD to avoid ANR
         new Thread(() -> {
             try {
                 Thread.sleep(3000); // Wait for everything to settle
 
                 // SELECT WHICH BENCHMARK TO RUN HERE
-                String selectedBenchmark = "FastaCpp";
+//                String selectedBenchmark = "FastaCpp";
 
                 Log.d("BENCHMARK", "Starting benchmark: " + selectedBenchmark);
 
