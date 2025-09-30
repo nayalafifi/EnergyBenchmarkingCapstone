@@ -174,7 +174,7 @@ public class MainActivity extends ComponentActivity {
 
             case "RevCompJs":
                 return runJsBenchmark("RevCompBenchmarkJs.js",
-                        "runRevCompBenchmark(1000, 1100)");
+                        "runRevCompBenchmark(generateLargeFasta(), 1100)");
 
             case "SpectralNormJs":
                 return runJsBenchmark("SpectralNormBenchmarkJs.js",
@@ -212,11 +212,14 @@ public class MainActivity extends ComponentActivity {
         }
     }
 
-    private String generateLargeFasta() {
+    private String generateLargeFasta() //match it to java implementation
+    {
         StringBuilder sb = new StringBuilder();
-        sb.append(">SEQ1\n");
-        for (int i = 0; i < 100; i++) {
-            sb.append("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT\n");
+        for (int seq = 0; seq < 1000; seq++) {
+            sb.append(">SEQ").append(seq).append("\n");
+            for (int line = 0; line < 100; line++) {
+                sb.append("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT\n");
+            }
         }
         return sb.toString();
     }
