@@ -1,11 +1,26 @@
 #include <jni.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <time.h>
 #include <android/log.h>
 
-static const char ALU[] =
+#define IM 139968
+#define IA   3877
+#define IC  29573
+#define SEED   42
+
+#ifndef BUFLINES
+#define BUFLINES 100
+#endif
+
+#define LINELEN 60
+
+static uint32_t seed = SEED;
+#define uint32_rand() ( seed = (seed * IA + IC ) % IM )
+
+static const char *alu =
         "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
         "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
         "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
@@ -14,76 +29,156 @@ static const char ALU[] =
         "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
         "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
 
-static const char IUB_CODES[] = {'a', 'c', 'g', 't', 'B', 'D', 'H', 'K', 'M', 'N', 'R', 'S', 'V', 'W', 'Y'};
-static const double IUB_PROBS[] = {0.27, 0.12, 0.12, 0.27, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02};
+static const char *iub = "acgtBDHKMNRSVWY";
+static const float iub_p[] = {
+        0.27f, 0.12f, 0.12f, 0.27f, 0.02f, 0.02f, 0.02f, 0.02f,
+        0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f
+};
 
-static const char HOMO_SAPIENS_CODES[] = {'a', 'c', 'g', 't'};
-static const double HOMO_SAPIENS_PROBS[] = {0.3029549426680, 0.1979883004921, 0.1975473066391, 0.3015094502008};
+static const char *homosapiens = "acgt";
+static const float homosapiens_p[] = {
+        0.3029549426680f,
+        0.1979883004921f,
+        0.1975473066391f,
+        0.3015094502008f
+};
 
-static char select_random(const char* codes, const double* cumProbs, int size) {
-    double r = (double)rand() / RAND_MAX;
-    for (int i = 0; i < size; i++) {
-        if (r < cumProbs[i]) return codes[i];
-    }
-    return codes[size - 1];
-}
+// Generate repeated sequence (no actual output, just computation)
+static void repeat_fasta(const char *seq, const int n) {
+    const int len = strlen(seq);
+    int buflen1 = len + LINELEN;
+    char *buffer1 = malloc(buflen1);
 
-static void generate_repeat(const char* seed, int n) {
-    int length = strlen(seed);
-    int pos = 0;
-    int remaining = n;
+    if (!buffer1) return;
 
-    while (remaining > 0) {
-        int lineLen = (60 < remaining) ? 60 : remaining;
-        if (pos + lineLen < length) {
-            pos += lineLen;
-        } else {
-            pos = (pos + lineLen) % length;
+    // Fill buffer with repeated sequence
+    if (LINELEN < len) {
+        memcpy(buffer1, seq, len);
+        memcpy(buffer1 + len, seq, LINELEN);
+    } else {
+        int i;
+        for (i = 0; i < LINELEN/len; i++) {
+            memcpy(buffer1 + i*len, seq, len);
         }
-        remaining -= lineLen;
-    }
-}
-
-static void generate_random(int n, const char* codes, const double* probs, int code_size) {
-    double* cumProbs = malloc(code_size * sizeof(double));
-    cumProbs[0] = probs[0];
-    for (int i = 1; i < code_size; i++) {
-        cumProbs[i] = cumProbs[i - 1] + probs[i];
-    }
-
-    int count = 0;
-    for (int i = 0; i < n; i++) {
-        select_random(codes, cumProbs, code_size);
-        count++;
-        if (count == 60) {
-            count = 0;
+        if (i * len < LINELEN) {
+            memcpy(buffer1 + i*len, seq, LINELEN - i*len);
         }
     }
 
-    free(cumProbs);
+    // Process the data (computation only, no output)
+    int total_lines = n / LINELEN;
+    int remaining = n % LINELEN;
+
+    // Simulate processing
+    for (int i = 0; i < total_lines; i++) {
+        // Would output LINELEN characters here
+        volatile char dummy = buffer1[i % buflen1];
+        (void)dummy;
+    }
+
+    if (remaining > 0) {
+        // Would output remaining characters here
+        volatile char dummy = buffer1[0];
+        (void)dummy;
+    }
+
+    free(buffer1);
+}
+
+// Build hash table for random generation
+static char * build_hash(const char *symb, const float *probability) {
+    char *hash = malloc(IM);
+    if (!hash) return NULL;
+
+    float sum = 0.0f;
+    const int len = strlen(symb);
+    int j = 0;
+
+    for (int i = 0; i < IM; i++) {
+        float r = (float)i / IM;
+
+        while (j < len - 1 && r >= sum + probability[j]) {
+            sum += probability[j];
+            j++;
+        }
+
+        hash[i] = symb[j];
+    }
+
+    return hash;
+}
+
+// Generate random sequence (computation only)
+static void random_fasta(const char *symb, const float *probability, const int n) {
+    char *hash = build_hash(symb, probability);
+    if (!hash) return;
+
+    // Allocate buffer for one line
+    char *buffer = malloc(LINELEN + 1);
+    if (!buffer) {
+        free(hash);
+        return;
+    }
+
+    // Generate sequences
+    int total_lines = n / LINELEN;
+    int remaining = n % LINELEN;
+
+    // Full lines
+    for (int i = 0; i < total_lines; i++) {
+        for (int k = 0; k < LINELEN; k++) {
+            uint32_t v = uint32_rand();
+            buffer[k] = hash[v];
+        }
+        // Process the line (no actual output)
+        volatile char dummy = buffer[0];
+        (void)dummy;
+    }
+
+    // Partial line
+    if (remaining > 0) {
+        for (int k = 0; k < remaining; k++) {
+            uint32_t v = uint32_rand();
+            buffer[k] = hash[v];
+        }
+        // Process the partial line
+        volatile char dummy = buffer[0];
+        (void)dummy;
+    }
+
+    free(buffer);
+    free(hash);
 }
 
 JNIEXPORT jstring JNICALL
 Java_com_example_myapplication_NativeBenchmarks_runFastaBenchmarkC(
-        JNIEnv *env, jclass clazz, jint n) {
+        JNIEnv *env,
+        jclass clazz,
+        jint n) {
 
     clock_t start = clock();
+    int iterations = 3300;
 
-    srand(42); // Match Java's predictable randomness
+    for (int iter = 0; iter < iterations; iter++) {
+        // Reset seed for each iteration
+        seed = SEED;
 
-    // Run 3300 iterations to match Java
-    for (int iteration = 0; iteration < 3300; iteration++) {
-        generate_repeat(ALU, n * 2);
-        generate_random(n * 3, IUB_CODES, IUB_PROBS, 15);
-        generate_random(n * 5, HOMO_SAPIENS_CODES, HOMO_SAPIENS_PROBS, 4);
+        // Generate sequences as per CLBG
+        repeat_fasta(alu, n * 2);
+        random_fasta(iub, iub_p, n * 3);
+        random_fasta(homosapiens, homosapiens_p, n * 5);
     }
 
     clock_t end = clock();
     long duration = ((end - start) * 1000) / CLOCKS_PER_SEC;
 
-    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK", "Fasta C duration: %ldms", duration);
+    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK",
+                        "Fasta C completed: %ldms (%d iterations)",
+                        duration, iterations);
 
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), "Fasta C completed: %ldms", duration);
+    snprintf(buffer, sizeof(buffer),
+             "Fasta C completed: %ldms (%d iterations)",
+             duration, iterations);
     return (*env)->NewStringUTF(env, buffer);
 }

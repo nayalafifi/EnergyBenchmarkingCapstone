@@ -30,43 +30,40 @@ public final class BinaryTreesBenchmark {
         Trace.beginSection("BinaryTrees Benchmark");
 
         long startTime = System.currentTimeMillis();
+        int iterations = 150;
 
         try {
             int minDepth = 4;
             int maxDepth = 16;
             int stretchDepth = maxDepth + 1;
 
-            StringBuilder output = new StringBuilder();
-
-            // Run 150 iterations to get ~30 seconds (15 iterations = 3s, so 150 ≈ 30s)
-            for (int iteration = 0; iteration < 150; iteration++) {
+            // Run 150 iterations to get ~30 seconds
+            for (int iteration = 0; iteration < iterations; iteration++) {
                 {
                     TreeNode stretchTree = TreeNode.bottomUpTree(stretchDepth);
-                    output.append("stretch tree of depth ").append(stretchDepth)
-                            .append("\t check: ").append(stretchTree.itemCheck()).append("\n");
+                    stretchTree.itemCheck(); // Just compute, don't store
                 }
 
                 TreeNode longLivedTree = TreeNode.bottomUpTree(maxDepth);
 
                 for (int depth = minDepth; depth <= maxDepth; depth += 2) {
-                    int iterations = 1 << (maxDepth - depth + minDepth);
+                    int iterationsInner = 1 << (maxDepth - depth + minDepth);
                     int check = 0;
-                    for (int i = 0; i < iterations; i++) {
+                    for (int i = 0; i < iterationsInner; i++) {
                         TreeNode tree = TreeNode.bottomUpTree(depth);
                         check += tree.itemCheck();
                     }
-                    output.append(iterations).append("\t trees of depth ").append(depth)
-                            .append("\t check: ").append(check).append("\n");
                 }
 
-                output.append("long lived tree of depth ").append(maxDepth)
-                        .append("\t check: ").append(longLivedTree.itemCheck()).append("\n");
+                longLivedTree.itemCheck(); // Just compute, don't store
             }
 
             long duration = System.currentTimeMillis() - startTime;
-            Log.d("BENCHMARK", "BinaryTrees Java duration: " + duration + "ms");
 
-            return output.toString();
+            String result = "BinaryTrees Java completed: " + duration + "ms (" + iterations + " iterations)";
+            Log.d("BENCHMARK", result);
+
+            return result;
         } finally {
             Trace.endSection();
         }

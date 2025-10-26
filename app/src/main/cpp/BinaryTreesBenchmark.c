@@ -1,79 +1,107 @@
 #include <jni.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <android/log.h>
-
-typedef intptr_t intnative_t;
+#include <inttypes.h>
 
 typedef struct tree_node {
-    struct tree_node *left_Node, *right_Node;
+    struct tree_node *left;
+    struct tree_node *right;
 } tree_node;
 
-static inline tree_node *create_Tree(const intnative_t depth) {
-    tree_node *root_Node = malloc(sizeof(tree_node));
+// Create a binary tree of given depth
+static tree_node* create_Tree(intptr_t depth) {
+    tree_node* node = (tree_node*)malloc(sizeof(tree_node));
+
     if (depth > 0) {
-        root_Node->left_Node = create_Tree(depth - 1);
-        root_Node->right_Node = create_Tree(depth - 1);
+        node->left = create_Tree(depth - 1);
+        node->right = create_Tree(depth - 1);
     } else {
-        root_Node->left_Node = root_Node->right_Node = NULL;
+        node->left = NULL;
+        node->right = NULL;
     }
-    return root_Node;
+
+    return node;
 }
 
-static inline intnative_t compute_Tree_Checksum(const tree_node *root_Node) {
-    if (root_Node->left_Node)
-        return compute_Tree_Checksum(root_Node->left_Node) + compute_Tree_Checksum(root_Node->right_Node) + 1;
-    else
+// Compute checksum for the tree
+static intptr_t compute_Tree_Checksum(const tree_node* root) {
+    if (root->left != NULL) {
+        return compute_Tree_Checksum(root->left) +
+               compute_Tree_Checksum(root->right) + 1;
+    } else {
         return 1;
-}
-
-static void free_Tree(tree_node *root_Node) {
-    if (root_Node->left_Node) {
-        free_Tree(root_Node->left_Node);
-        free_Tree(root_Node->right_Node);
     }
-    free(root_Node);
 }
 
-JNIEXPORT jstring JNICALL Java_com_example_myapplication_NativeBenchmarks_runBinaryTreesBenchmarkC(
-        JNIEnv *env, jclass clazz, jint minDepth, jint maxDepth
-) {
+// Delete the entire tree
+static void delete_Tree(tree_node* tree) {
+    if (tree->left != NULL) {
+        delete_Tree(tree->left);
+        delete_Tree(tree->right);
+    }
+    free(tree);
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_example_myapplication_NativeBenchmarks_runBinaryTreesBenchmarkC(
+        JNIEnv *env,
+        jclass clazz,
+        jint minDepth,
+        jint maxDepth) {
+
     clock_t start = clock();
+    int iterations = 10;
 
-    const intnative_t minimum_Tree_Depth = (minDepth < 4) ? 4 : (intnative_t)minDepth;
-    intnative_t maximum_Tree_Depth = (maxDepth < minimum_Tree_Depth + 2) ? (minimum_Tree_Depth + 2) : (intnative_t)maxDepth;
+    for (int iter = 0; iter < iterations; iter++) {
+        // Set minimum and maximum depths according to CLBG algorithm
+        const intptr_t minimum_Tree_Depth = 4;
+        intptr_t maximum_Tree_Depth = maxDepth;
+        if (maximum_Tree_Depth < minimum_Tree_Depth + 2) {
+            maximum_Tree_Depth = minimum_Tree_Depth + 2;
+        }
 
-    char output_buffer[1024] = {0};
+        // Create stretch tree of depth maximum_Tree_Depth + 1
+        intptr_t stretch_depth = maximum_Tree_Depth + 1;
+        tree_node* stretch_Tree = create_Tree(stretch_depth);
+        intptr_t stretch_check = compute_Tree_Checksum(stretch_Tree);
+        delete_Tree(stretch_Tree);
 
-    // Run 150 iterations to match Java
-    for (int iteration = 0; iteration < 50; iteration++) {
-        // Stretch tree
-        tree_node *stretch_Tree = create_Tree(maximum_Tree_Depth + 1);
-        compute_Tree_Checksum(stretch_Tree);
-        free_Tree(stretch_Tree);
+        // Create long-lived tree
+        tree_node* long_Lived_Tree = create_Tree(maximum_Tree_Depth);
 
-        // Long-lived tree
-        tree_node *long_Lived_Tree = create_Tree(maximum_Tree_Depth);
+        // Create many trees of varying depths
+        for (intptr_t current_Tree_Depth = minimum_Tree_Depth;
+             current_Tree_Depth <= maximum_Tree_Depth;
+             current_Tree_Depth += 2) {
 
-        for (intnative_t depth = minimum_Tree_Depth; depth <= maximum_Tree_Depth; depth += 2) {
-            intnative_t iterations = 1 << (maximum_Tree_Depth - depth + minimum_Tree_Depth);
-            for (intnative_t i = 0; i < iterations; i++) {
-                tree_node *t = create_Tree(depth);
-                compute_Tree_Checksum(t);
-                free_Tree(t);
+            intptr_t iterations_inner = 1 << (maximum_Tree_Depth - current_Tree_Depth +
+                                              minimum_Tree_Depth);
+            intptr_t total_Trees_Checksum = 0;
+
+            for (intptr_t i = 1; i <= iterations_inner; i++) {
+                tree_node* temp_tree = create_Tree(current_Tree_Depth);
+                total_Trees_Checksum += compute_Tree_Checksum(temp_tree);
+                delete_Tree(temp_tree);
             }
         }
 
-        free_Tree(long_Lived_Tree);
+        // Check long-lived tree
+        intptr_t long_lived_check = compute_Tree_Checksum(long_Lived_Tree);
+        delete_Tree(long_Lived_Tree);
     }
 
     clock_t end = clock();
     long duration = ((end - start) * 1000) / CLOCKS_PER_SEC;
 
-    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK", "BinaryTrees C duration: %ldms", duration);
+    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK",
+                        "BinaryTrees C completed: %ldms (%d iterations)",
+                        duration, iterations);
 
-    snprintf(output_buffer, sizeof(output_buffer), "BinaryTrees C completed: %ldms", duration);
-    return (*env)->NewStringUTF(env, output_buffer);
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer),
+             "BinaryTrees C completed: %ldms (%d iterations)",
+             duration, iterations);
+    return (*env)->NewStringUTF(env, buffer);
 }

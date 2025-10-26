@@ -49,8 +49,8 @@ public final class FannkuchReduxBenchmark {
 
                     while (true) {
                         if (r == n) {
-                            output.append("Checksum: ").append(checkSum).append("\n");
-                            output.append("Maximum flips: ").append(maxFlips).append("\n");
+//                            output.append("Checksum: ").append(checkSum).append("\n");
+//                            output.append("Maximum flips: ").append(maxFlips).append("\n");
                             break; // Break out of inner while loop
                         }
                         int perm0 = perm1[0];

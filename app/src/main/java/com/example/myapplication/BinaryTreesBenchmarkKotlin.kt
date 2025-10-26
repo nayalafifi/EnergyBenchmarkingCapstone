@@ -25,40 +25,40 @@ object BinaryTreesBenchmarkKotlin {
         Trace.beginSection("BinaryTrees Benchmark")
 
         val startTime = System.currentTimeMillis()
+        val iterations = 150
 
         try {
             val minDepth = 4
             val maxDepth = 16
             val stretchDepth = maxDepth + 1
 
-            val output = StringBuilder()
-
             // Run 150 iterations to get ~30-60 seconds
-            for (iteration in 0 until 150) {
+            for (iteration in 0 until iterations) {
                 run {
                     val stretchTree = TreeNode.bottomUpTree(stretchDepth)
-                    output.append("stretch tree of depth $stretchDepth\t check: ${stretchTree.itemCheck()}\n")
+                    stretchTree.itemCheck() // Just compute, don't store
                 }
 
                 val longLivedTree = TreeNode.bottomUpTree(maxDepth)
 
                 for (depth in minDepth..maxDepth step 2) {
-                    val iterations = 1 shl (maxDepth - depth + minDepth)
+                    val iterationsInner = 1 shl (maxDepth - depth + minDepth)
                     var check = 0
-                    for (i in 0 until iterations) {
+                    for (i in 0 until iterationsInner) {
                         val tree = TreeNode.bottomUpTree(depth)
                         check += tree.itemCheck()
                     }
-                    output.append("$iterations\t trees of depth $depth\t check: $check\n")
                 }
 
-                output.append("long lived tree of depth $maxDepth\t check: ${longLivedTree.itemCheck()}\n")
+                longLivedTree.itemCheck() // Just compute, don't store
             }
 
             val duration = System.currentTimeMillis() - startTime
-            Log.d("BENCHMARK", "BinaryTrees Kotlin duration: ${duration}ms")
 
-            return output.toString()
+            val result = "BinaryTrees Kotlin completed: ${duration}ms ($iterations iterations)"
+            Log.d("BENCHMARK", result)
+
+            return result
         } finally {
             Trace.endSection()
         }

@@ -1,11 +1,24 @@
-#include "FastaBenchmarkC.h"
-#include <string>
+#include <jni.h>
+#include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <android/log.h>
 #include <time.h>
+#include <android/log.h>
 
-static const char ALU[] =
+#define IM 139968
+#define IA   3877
+#define IC  29573
+#define SEED   42
+
+static uint32_t seed = SEED;
+#define uint32_rand() ( seed = (seed * IA + IC ) % IM )
+
+#ifndef BUFLINES
+#define BUFLINES 100
+#endif
+
+static const char *alu =
         "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
         "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
         "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
@@ -14,75 +27,133 @@ static const char ALU[] =
         "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
         "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
 
-static const char IUB_CODES[] = {'a', 'c', 'g', 't', 'B', 'D', 'H', 'K', 'M', 'N', 'R', 'S', 'V', 'W', 'Y'};
-static const double IUB_PROBS[] = {0.27, 0.12, 0.12, 0.27, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02};
+static const char *iub = "acgtBDHKMNRSVWY";
+static const float iub_p[] = {
+        0.27f, 0.12f, 0.12f, 0.27f, 0.02f, 0.02f, 0.02f, 0.02f,
+        0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f
+};
 
-static const char HOMO_SAPIENS_CODES[] = {'a', 'c', 'g', 't'};
-static const double HOMO_SAPIENS_PROBS[] = {0.3029549426680, 0.1979883004921, 0.1975473066391, 0.3015094502008};
+static const char *homosapiens = "acgt";
+static const float homosapiens_p[] = {
+        0.3029549426680f,
+        0.1979883004921f,
+        0.1975473066391f,
+        0.3015094502008f
+};
 
-static char select_random(const char* codes, const double* cumProbs, int size) {
-    double r = (double)rand() / RAND_MAX;
-    for (int i = 0; i < size; i++) {
-        if (r < cumProbs[i]) return codes[i];
+#define LINELEN 60
+
+static void repeat_fasta(const char *seq, const int n) {
+    const int len = strlen(seq);
+    int buflen1 = len + LINELEN;
+    char *buffer1 = new char[buflen1];
+    int i;
+
+    if (LINELEN < len) {
+        memcpy(buffer1, seq, len);
+        memcpy(buffer1+len, seq, LINELEN);
+    } else {
+        for (i=0; i < LINELEN/len; i++) memcpy(buffer1+i*len, seq, len);
+        memcpy(buffer1+i*len, seq, n - i*n);
     }
-    return codes[size - 1];
+
+    int buflen2 = (LINELEN+1) * len;
+    char *buffer2 = new char[buflen2];
+    for (i=0; i<len; i++) {
+        memcpy(buffer2+i*(LINELEN+1), buffer1+((i*LINELEN)%len), LINELEN);
+        buffer2[(i+1)*(LINELEN+1)-1] = '\n';
+    }
+
+    delete[] buffer1;
+    delete[] buffer2;
 }
 
-static void generate_repeat(const char* seed, int n) {
-    int length = strlen(seed);
-    int pos = 0;
-    int remaining = n;
+static char * build_hash(const char *symb, const float *probability) {
+    int i, j;
+    char *hash = new char[IM];
 
-    while (remaining > 0) {
-        int lineLen = (60 < remaining) ? 60 : remaining;
-        if (pos + lineLen < length) {
-            pos += lineLen;
-        } else {
-            pos = (pos + lineLen) % length;
+    float sum = 0.0f;
+    const int len = strlen(symb);
+    sum = probability[0];
+
+    for (i=0, j=0; i<IM && j<len; i++) {
+        float r = 1.0f * i / IM;
+        if (r >= sum) {
+            j++;
+            sum += probability[j];
         }
-        remaining -= lineLen;
+        hash[i] = symb[j];
     }
+    return hash;
 }
 
-static void generate_random(int n, const char* codes, const double* probs, int code_size) {
-    double* cumProbs = new double[code_size];
-    cumProbs[0] = probs[0];
-    for (int i = 1; i < code_size; i++) {
-        cumProbs[i] = cumProbs[i - 1] + probs[i];
+static char * buffer_with_linebreaks(const int lines) {
+    char *buffer = new char[(LINELEN+1)*lines];
+    for (int i=0; i<lines; i++) {
+        buffer[i*(LINELEN+1)+LINELEN] = '\n';
     }
+    return buffer;
+}
 
-    int count = 0;
-    for (int i = 0; i < n; i++) {
-        select_random(codes, cumProbs, code_size);
-        count++;
-        if (count == 60) {
-            count = 0;
+static void random_fasta(const char *symb, const float *probability, const int n) {
+    int i, j, k;
+    char *hash = build_hash(symb, probability);
+    char *buffer = buffer_with_linebreaks(BUFLINES);
+
+    int buffers = n/LINELEN/BUFLINES;
+    for (i=0; i<buffers; i++) {
+        for (j=0; j<BUFLINES; j++) {
+            for (k=0; k<LINELEN; k++) {
+                uint32_t v = uint32_rand();
+                buffer[j*(LINELEN+1)+k] = hash[v];
+            }
         }
     }
 
-    delete[] cumProbs;
+    int lines = n/LINELEN - buffers*BUFLINES;
+    for (j=0; j<lines; j++) {
+        for (k=0; k<LINELEN; k++) {
+            uint32_t v = uint32_rand();
+            buffer[j*(LINELEN+1)+k] = hash[v];
+        }
+    }
+
+    int partials = n - LINELEN*lines - buffers*BUFLINES*LINELEN;
+    for (k=0; k<partials; k++) {
+        uint32_t v = uint32_rand();
+        buffer[lines*(LINELEN+1)+k] = hash[v];
+    }
+
+    delete[] buffer;
+    delete[] hash;
 }
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_myapplication_NativeBenchmarks_runFastaBenchmarkCpp(
-        JNIEnv* env, jclass, jint n) {
+        JNIEnv *env,
+        jclass clazz,
+        jint n) {
 
     clock_t start = clock();
+    int iterations = 3300;
 
-    srand(42);
-
-    // Run 3300 iterations to match Java
-    for (int iteration = 0; iteration < 3300; iteration++) {
-        generate_repeat(ALU, n * 2);
-        generate_random(n * 3, IUB_CODES, IUB_PROBS, 15);
-        generate_random(n * 5, HOMO_SAPIENS_CODES, HOMO_SAPIENS_PROBS, 4);
+    for (int it = 0; it < iterations; it++) {
+        seed = SEED;
+        repeat_fasta(alu, n*2);
+        random_fasta(iub, iub_p, n*3);
+        random_fasta(homosapiens, homosapiens_p, n*5);
     }
 
     clock_t end = clock();
     long duration = ((end - start) * 1000) / CLOCKS_PER_SEC;
 
-    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK", "Fasta C++ duration: %ldms", duration);
+    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK",
+                        "Fasta C++ completed: %ldms (%d iterations)",
+                        duration, iterations);
 
-    std::string result = "Fasta C++ completed: " + std::to_string(duration) + "ms";
-    return env->NewStringUTF(result.c_str());
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer),
+             "Fasta C++ completed: %ldms (%d iterations)",
+             duration, iterations);
+    return env->NewStringUTF(buffer);
 }

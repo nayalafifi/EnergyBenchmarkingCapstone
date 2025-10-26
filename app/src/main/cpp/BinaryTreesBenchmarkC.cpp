@@ -1,71 +1,77 @@
-#include "BinaryTreesBenchmark.h"
-#include <string>
-#include <sstream>
-#include <android/log.h>
+#include <jni.h>
+#include <memory>
+#include <algorithm>
 #include <time.h>
+#include <android/log.h>
 
-struct Node {
-    Node* left;
-    Node* right;
-    Node() : left(nullptr), right(nullptr) {}
+struct TreeNode {
+    TreeNode *left, *right;
+
+    TreeNode(TreeNode* l, TreeNode* r) : left(l), right(r) {}
+
+    ~TreeNode() {
+        delete left;
+        delete right;
+    }
 
     int check() const {
-        if (left) return left->check() + 1 + right->check();
-        else return 1;
+        if (left)
+            return left->check() + right->check() + 1;
+        return 1;
     }
 };
 
-Node* make(int d) {
-    Node* node = new Node();
-    if (d > 0) {
-        node->left = make(d - 1);
-        node->right = make(d - 1);
-    }
-    return node;
+TreeNode* make(int depth) {
+    if (depth > 0)
+        return new TreeNode(make(depth-1), make(depth-1));
+    return new TreeNode(nullptr, nullptr);
 }
 
-void deleteTree(Node* node) {
-    if (!node) return;
-    deleteTree(node->left);
-    deleteTree(node->right);
-    delete node;
-}
-
-extern "C"
-JNIEXPORT jstring JNICALL
+extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_myapplication_NativeBenchmarks_runBinaryTreesBenchmarkCpp(
-        JNIEnv* env, jclass clazz, jint min_depth, jint max_depth) {
+        JNIEnv *env,
+        jclass clazz,
+        jint minDepth,
+        jint maxDepth) {
 
     clock_t start = clock();
+    int iterations = 1000;
 
-    // Run 150 iterations to match Java
-    for (int iteration = 0; iteration < 50; iteration++) {
-        int stretch_depth = max_depth + 1;
-        Node* stretch_tree = make(stretch_depth);
-        stretch_tree->check();
-        deleteTree(stretch_tree);
+    for (int iter = 0; iter < iterations; iter++) {
+        int stretchDepth = maxDepth + 1;
 
-        Node* long_lived_tree = make(max_depth);
+        {
+            TreeNode* stretchTree = make(stretchDepth);
+            stretchTree->check();
+            delete stretchTree;
+        }
 
-        for (int depth = min_depth; depth <= max_depth; depth += 2) {
-            int iterations = 1 << (max_depth - depth + min_depth);
-            int check = 0;
-            for (int i = 0; i < iterations; ++i) {
-                Node* tree = make(depth);
-                check += tree->check();
-                deleteTree(tree);
+        TreeNode* longLivedTree = make(maxDepth);
+
+        for (int depth = minDepth; depth <= maxDepth; depth += 2) {
+            int iterations_inner = 1 << (maxDepth - depth + minDepth);
+            int check_sum = 0;
+
+            for (int i = 1; i <= iterations_inner; i++) {
+                TreeNode* tree = make(depth);
+                check_sum += tree->check();
+                delete tree;
             }
         }
 
-        deleteTree(long_lived_tree);
+        delete longLivedTree;
     }
 
     clock_t end = clock();
     long duration = ((end - start) * 1000) / CLOCKS_PER_SEC;
 
-    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK", "BinaryTrees C++ duration: %ldms", duration);
+    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK",
+                        "BinaryTrees C++ completed: %ldms (%d iterations)",
+                        duration, iterations);
 
-    std::stringstream output;
-    output << "BinaryTrees C++ completed: " << duration << "ms";
-    return env->NewStringUTF(output.str().c_str());
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer),
+             "BinaryTrees C++ completed: %ldms (%d iterations)",
+             duration, iterations);
+    return env->NewStringUTF(buffer);
 }

@@ -1,68 +1,50 @@
-var map = {};
+var complementMap = {
+    'A': 'T', 'a': 'T',
+    'T': 'A', 't': 'A',
+    'G': 'C', 'g': 'C',
+    'C': 'G', 'c': 'G',
+    'M': 'K', 'm': 'K',
+    'R': 'Y', 'r': 'Y',
+    'W': 'W', 'w': 'W',
+    'S': 'S', 's': 'S',
+    'Y': 'R', 'y': 'R',
+    'K': 'M', 'k': 'M',
+    'V': 'B', 'v': 'B',
+    'H': 'D', 'h': 'D',
+    'D': 'H', 'd': 'H',
+    'B': 'V', 'b': 'V',
+    'N': 'N', 'n': 'N'
+};
 
-function initializeMap() {
-    var from = "ACBDGHKMNSRUTWVYacbdghkmnsrutwvy";
-    var to = "TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR";
-    
-    for (var i = 0; i < from.length; i++) {
-        map[from[i]] = to[i];
-    }
-    map['\n'] = '\n';
-    map['>'] = '>';
+function complement(c) {
+    return complementMap[c] || c;
 }
 
-function reverseSection(buf, start, end) {
-    while (start < end) {
-        if (buf[start] === '\n') {
-            start++;
-            continue;
-        }
-        if (buf[end] === '\n') {
-            end--;
-            continue;
-        }
-        var temp = buf[start];
-        buf[start] = buf[end];
-        buf[end] = temp;
-        start++;
-        end--;
+function reverseComplement(seq) {
+    var arr = seq.split('');
+    var len = arr.length;
+
+    for (var i = 0, j = len - 1; i < j; i++, j--) {
+        var temp = complement(arr[i]);
+        arr[i] = complement(arr[j]);
+        arr[j] = temp;
     }
+
+    if (len % 2 === 1) {
+        arr[Math.floor(len / 2)] = complement(arr[Math.floor(len / 2)]);
+    }
+
+    return arr.join('');
 }
 
-function runRevCompBenchmark(input, iterations) {
+function runRevCompBenchmark(fastaInput) {
     var startTime = Date.now();
-    
-    initializeMap();
-    
-    // Run specified number of iterations
+    var iterations = 1000;
+
     for (var iter = 0; iter < iterations; iter++) {
-        var buf = input.split('');
-        
-        // Map complement
-        for (var i = 0; i < buf.length; i++) {
-            var b = buf[i];
-            if (b !== '\n' && b !== '>') {
-                buf[i] = map[b] || b;
-            }
-        }
-        
-        // Reverse each sequence
-        var seqStart = 0;
-        for (var i = 0; i < buf.length; i++) {
-            if (buf[i] === '>') {
-                if (i > seqStart) {
-                    reverseSection(buf, seqStart, i - 1);
-                }
-                seqStart = i;
-                while (i < buf.length && buf[i] !== '\n') i++;
-                seqStart = i + 1;
-            }
-        }
-        if (seqStart < buf.length) {
-            reverseSection(buf, seqStart, buf.length - 1);
-        }
+        reverseComplement(fastaInput);
     }
-    
+
     var duration = Date.now() - startTime;
     return "RevComp JS completed: " + duration + "ms (" + iterations + " iterations)";
 }

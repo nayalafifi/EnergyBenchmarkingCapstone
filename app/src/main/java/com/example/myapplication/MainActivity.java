@@ -1,6 +1,7 @@
 package com.example.myapplication;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import androidx.activity.ComponentActivity;
@@ -27,16 +28,27 @@ public class MainActivity extends ComponentActivity {
         scrollView.addView(layout);
         setContentView(scrollView);
 
-        String benchmarkFromIntent = getIntent().getStringExtra("BENCHMARK");
-        String selectedBenchmark = benchmarkFromIntent != null ? benchmarkFromIntent : "BinaryTreesJava";
+        // Check for automated benchmark execution from intent
+        Intent intent = getIntent();
+        String benchmarkFromIntent = intent.getStringExtra("BENCHMARK");
+        String languageFromIntent = intent.getStringExtra("LANGUAGE");
+
+        // Determine which benchmark to run
+        String selectedBenchmark;
+        if (benchmarkFromIntent != null && languageFromIntent != null) {
+            // Automated mode: construct benchmark name from intent
+            selectedBenchmark = benchmarkFromIntent + languageFromIntent;
+            Log.d("BENCHMARK", "Automated mode: " + selectedBenchmark);
+        } else {
+            // Manual mode: hardcoded benchmark for testing
+            selectedBenchmark = "BinaryTreesJava";
+            Log.d("BENCHMARK", "Manual mode: " + selectedBenchmark);
+        }
 
         // Run benchmark on BACKGROUND THREAD to avoid ANR
         new Thread(() -> {
             try {
-                Thread.sleep(3000); // Wait for everything to settle
-
-                // SELECT WHICH BENCHMARK TO RUN HERE
-//                String selectedBenchmark = "FastaCpp";
+                Thread.sleep(1000); // Wait for everything to settle
 
                 Log.d("BENCHMARK", "Starting benchmark: " + selectedBenchmark);
 
@@ -44,7 +56,8 @@ public class MainActivity extends ComponentActivity {
                 String result = runSelectedBenchmark(selectedBenchmark);
                 long duration = System.currentTimeMillis() - startTime;
 
-                Log.d("BENCHMARK", "Completed in " + duration + "ms");
+                Log.d("BENCHMARK", selectedBenchmark + " completed: " + duration + "ms");
+                Log.d("BENCHMARK_RESULT", result); // For automation script parsing
 
                 // Save results
                 saveToFile(result);
@@ -53,6 +66,12 @@ public class MainActivity extends ComponentActivity {
                 runOnUiThread(() -> {
                     textView.setText(result + "\n\nTotal time: " + duration + "ms");
                 });
+
+                // Auto-exit after 2 seconds if launched from automation
+                if (benchmarkFromIntent != null) {
+                    Thread.sleep(2000);
+                    runOnUiThread(() -> finish());
+                }
 
             } catch (Exception e) {
                 Log.e("BENCHMARK", "Benchmark failed", e);
@@ -110,7 +129,6 @@ public class MainActivity extends ComponentActivity {
                 return SpectralNormBenchmarkKotlin.INSTANCE.runBenchmark();
 
             // ============ C BENCHMARKS ============
-
             case "BinaryTreesC":
                 return NativeBenchmarks.runBinaryTreesBenchmarkC(4, 16);
 
@@ -154,32 +172,32 @@ public class MainActivity extends ComponentActivity {
             case "SpectralNormCpp":
                 return NativeBenchmarks.runSpectralNormBenchmarkCpp(5000);
 
-// ============ JAVASCRIPT BENCHMARKS ============
-            case "BinaryTreesJs":
+            // ============ JAVASCRIPT BENCHMARKS ============
+            case "BinaryTreesJavaScript":
                 return runJsBenchmark("BinaryTreesBenchmarkJs.js",
                         "runBinaryTreesBenchmark(16, 150)");
 
-            case "FannkuchReduxJs":
+            case "FannkuchReduxJavaScript":
                 return runJsBenchmark("FannkuchReduxBenchmarkJs.js",
                         "runFannkuchReduxBenchmark(10, 80)");
 
-            case "FastaJs":
+            case "FastaJavaScript":
                 return runJsBenchmark("FastaBenchmarkJs.js",
                         "runFastaBenchmark(10000, 500)");
 
-            case "MandelbrotJs":
+            case "MandelbrotJavaScript":
                 return runJsBenchmark("MandelbrotBenchmarkJs.js",
                         "runMandelbrotBenchmark(6000, 15)");
 
-            case "NBodyJs":
+            case "NBodyJavaScript":
                 return runJsBenchmark("NBodyBenchmarkJs.js",
                         "runNBodyBenchmark(500000, 143)");
 
-            case "RevCompJs":
+            case "RevCompJavaScript":
                 return runJsBenchmark("RevCompBenchmarkJs.js",
                         "runRevCompBenchmark(generateLargeFasta(), 1100)");
 
-            case "SpectralNormJs":
+            case "SpectralNormJavaScript":
                 return runJsBenchmark("SpectralNormBenchmarkJs.js",
                         "runSpectralNormBenchmark(100, 5000)");
 
@@ -215,8 +233,7 @@ public class MainActivity extends ComponentActivity {
         }
     }
 
-    private String generateLargeFasta() //match it to java implementation
-    {
+    private String generateLargeFasta() {
         StringBuilder sb = new StringBuilder();
         for (int seq = 0; seq < 1000; seq++) {
             sb.append(">SEQ").append(seq).append("\n");

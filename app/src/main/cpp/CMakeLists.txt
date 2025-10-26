@@ -1,16 +1,8 @@
 cmake_minimum_required(VERSION 3.22.1)
+project("myapplication" LANGUAGES C CXX)
 
-project("myapplication")
-
-# Define nativebenchmarks shared library with your native source file(s)
-add_library(nativebenchmarks SHARED
-        BinaryTreesBenchmarkC.cpp
-        FannkuchReduxBenchmarkC.cpp
-        FastaBenchmarkC.cpp
-        MandelbrotBenchmarkC.cpp
-        NBodyBenchmarkC.cpp
-        RevCompBenchmarkC.cpp
-        SpectralNormBenchmarkC.cpp
+# Group C sources
+set(NATIVE_C_SOURCES
         BinaryTreesBenchmark.c
         FannkuchReduxBenchmark.c
         FastaBenchmark.c
@@ -18,14 +10,26 @@ add_library(nativebenchmarks SHARED
         NbodyBenchmark.c
         RevCompBenchmark.c
         SpectralNormBenchmark.c
-
-
-        # Add other C++ source files here (do NOT add header files)
 )
 
-# Link libraries to nativebenchmarks library
+# Group C++ sources
+set(NATIVE_CPP_SOURCES
+        BinaryTreesBenchmarkC.cpp
+        FannkuchReduxBenchmarkC.cpp
+        FastaBenchmarkC.cpp
+        MandelbrotBenchmarkC.cpp
+        NBodyBenchmarkC.cpp
+        RevCompBenchmarkC.cpp
+        SpectralNormBenchmarkC.cpp
+)
+
+add_library(nativebenchmarks SHARED
+        ${NATIVE_C_SOURCES}
+        ${NATIVE_CPP_SOURCES}
+)
+
+# Link required Android system libraries
 target_link_libraries(nativebenchmarks
         android
         log
 )
-

@@ -1,92 +1,70 @@
-#include "RevCompBenchmarkC.h"
+#include <jni.h>
 #include <string>
-#include <cstring>
-#include <android/log.h>
+#include <algorithm>
 #include <time.h>
+#include <android/log.h>
 
-static char map[256];
-static bool map_initialized = false;
-
-static void initialize_map() {
-    if (map_initialized) return;
-
-    const char* from = "ACBDGHK\nMNSRUTWVYacbdghkmnsrutwvy";
-    const char* to = "TGVHCDM\nKNSYAAWBRTGVHCDMKNSYAAWBR";
-
-    for (int i = 0; from[i] != '\0'; i++) {
-        map[(unsigned char)from[i]] = to[i];
+static char complement(char c) {
+    switch (c) {
+        case 'A': case 'a': return 'T';
+        case 'T': case 't': return 'A';
+        case 'G': case 'g': return 'C';
+        case 'C': case 'c': return 'G';
+        case 'M': case 'm': return 'K';
+        case 'R': case 'r': return 'Y';
+        case 'W': case 'w': return 'W';
+        case 'S': case 's': return 'S';
+        case 'Y': case 'y': return 'R';
+        case 'K': case 'k': return 'M';
+        case 'V': case 'v': return 'B';
+        case 'H': case 'h': return 'D';
+        case 'D': case 'd': return 'H';
+        case 'B': case 'b': return 'V';
+        case 'N': case 'n': return 'N';
+        default: return c;
     }
-    map_initialized = true;
 }
 
-static void reverse_section(char* buf, int start, int end) {
-    while (start < end) {
-        if (buf[start] == '\n') {
-            start++;
-            continue;
-        }
-        if (buf[end] == '\n') {
-            end--;
-            continue;
-        }
-        char temp = buf[start];
-        buf[start] = buf[end];
-        buf[end] = temp;
-        start++;
-        end--;
+static void reverse_complement(std::string& seq) {
+    int len = seq.length();
+    for (int i = 0, j = len - 1; i < j; i++, j--) {
+        char temp = complement(seq[i]);
+        seq[i] = complement(seq[j]);
+        seq[j] = temp;
+    }
+    if (len % 2 == 1) {
+        seq[len / 2] = complement(seq[len / 2]);
     }
 }
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_myapplication_NativeBenchmarks_runRevCompBenchmarkCpp(
-        JNIEnv* env, jclass, jstring jinput) {
+        JNIEnv *env,
+        jclass clazz,
+        jstring fastaInput) {
 
     clock_t start = clock();
+    int iterations = 1000;
 
-    initialize_map();
+    const char *input = env->GetStringUTFChars(fastaInput, nullptr);
+    std::string original(input);
+    env->ReleaseStringUTFChars(fastaInput, input);
 
-    const char* input = env->GetStringUTFChars(jinput, 0);
-    int input_len = strlen(input);
-
-    // Run 1100 iterations to match Java
-    for (int iteration = 0; iteration < 1100; iteration++) {
-        char* buf = new char[input_len + 1];
-        memcpy(buf, input, input_len + 1);
-
-        // Map complement
-        for (int i = 0; i < input_len; i++) {
-            char b = buf[i];
-            if (b != '\n' && b != '>') {
-                buf[i] = map[(unsigned char)b];
-            }
-        }
-
-        // Reverse each sequence
-        int seqStart = 0;
-        for (int i = 0; i < input_len; i++) {
-            if (buf[i] == '>') {
-                if (i > seqStart) {
-                    reverse_section(buf, seqStart, i - 1);
-                }
-                seqStart = i;
-                while (i < input_len && buf[i] != '\n') i++;
-                seqStart = i + 1;
-            }
-        }
-        if (seqStart < input_len) {
-            reverse_section(buf, seqStart, input_len - 1);
-        }
-
-        delete[] buf;
+    for (int iter = 0; iter < iterations; iter++) {
+        std::string seq = original;
+        reverse_complement(seq);
     }
-
-    env->ReleaseStringUTFChars(jinput, input);
 
     clock_t end = clock();
     long duration = ((end - start) * 1000) / CLOCKS_PER_SEC;
 
-    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK", "RevComp C++ duration: %ldms", duration);
+    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK",
+                        "RevComp C++ completed: %ldms (%d iterations)",
+                        duration, iterations);
 
-    std::string result = "RevComp C++ completed: " + std::to_string(duration) + "ms";
-    return env->NewStringUTF(result.c_str());
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer),
+             "RevComp C++ completed: %ldms (%d iterations)",
+             duration, iterations);
+    return env->NewStringUTF(buffer);
 }

@@ -1,80 +1,63 @@
-function fillFact(n) {
-    var fact = [];
-    fact[0] = 1;
-    for (var i = 1; i <= n; i++) {
-        fact[i] = fact[i - 1] * i;
+function fannkuch(n) {
+    var perm = new Array(n);
+    var perm1 = new Array(n);
+    var count = new Array(n);
+    var maxFlipsCount = 0;
+    var permCount = 0;
+    var checksum = 0;
+
+    for (var i = 0; i < n; i++) perm1[i] = i;
+
+    var r = n;
+    while (true) {
+        while (r != 1) {
+            count[r - 1] = r;
+            r--;
+        }
+
+        for (var i = 0; i < n; i++) perm[i] = perm1[i];
+
+        var flipsCount = 0;
+        var k;
+        while (!((k = perm[0]) == 0)) {
+            var k2 = (k + 1) >> 1;
+            for (var i = 0; i < k2; i++) {
+                var temp = perm[i];
+                perm[i] = perm[k - i];
+                perm[k - i] = temp;
+            }
+            flipsCount++;
+        }
+
+        maxFlipsCount = Math.max(maxFlipsCount, flipsCount);
+        checksum += permCount % 2 == 0 ? flipsCount : -flipsCount;
+
+        while (true) {
+            if (r == n) return maxFlipsCount;
+
+            var perm0 = perm1[0];
+            var i = 0;
+            while (i < r) {
+                var j = i + 1;
+                perm1[i] = perm1[j];
+                i = j;
+            }
+            perm1[r] = perm0;
+
+            count[r]--;
+            if (count[r] > 0) break;
+            r++;
+        }
+        permCount++;
     }
-    return fact;
 }
 
-function div(val, by) {
-    return Math.floor(val / by);
-}
-
-function fannkuchredux(n) {
-    var fact = fillFact(n);
-    var maxFlips = 0;
-    var checkSum = 0;
-    var p = [];
-    var pp = [];
-    var count = [];
-    var permCount = fact[n];
-
-    for (var idx = 0; idx < permCount; idx++) {
-        // Generate permutation for idx
-        for (var i = 0; i < n; i++) {
-            p[i] = i;
-        }
-        var idxCopy = idx;
-        for (var i = n - 1; i > 0; i--) {
-            var d = div(idxCopy, fact[i]);
-            count[i] = d;
-            idxCopy = idxCopy % fact[i];
-            for (var j = 0; j < n; j++) {
-                pp[j] = p[j];
-            }
-            for (var j = 0; j <= i; j++) {
-                if (j + d <= i) {
-                    p[j] = pp[j + d];
-                } else {
-                    p[j] = pp[j + d - i - 1];
-                }
-            }
-        }
-        // Count flips
-        var flips = 0;
-        for (var j = 0; j < n; j++) {
-            pp[j] = p[j];
-        }
-        var first = pp[0];
-        while (first !== 0) {
-            var temp = pp[first];
-            pp[first] = first;
-            if (first > 1) {
-                for (var k = 1, l = first - 1; k < l; k++, l--) {
-                    var t = pp[k];
-                    pp[k] = pp[l];
-                    pp[l] = t;
-                }
-            }
-            first = temp;
-            flips++;
-        }
-        if (maxFlips < flips) {
-            maxFlips = flips;
-        }
-        checkSum += (idx % 2 === 0) ? flips : -flips;
-    }
-    return maxFlips;
-}
-
-// Entry point for Android with iteration loop and timing
-function runFannkuchReduxBenchmark(n, iterations) {
+function runFannkuchReduxBenchmark(n) {
     var startTime = Date.now();
+    var iterations = 80;
 
-    // Run specified number of iterations to match Java
     for (var iter = 0; iter < iterations; iter++) {
-        fannkuchredux(n);
+        fannkuch(n);
     }
 
     var duration = Date.now() - startTime;

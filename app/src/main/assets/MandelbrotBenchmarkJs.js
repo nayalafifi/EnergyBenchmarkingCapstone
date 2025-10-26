@@ -1,63 +1,52 @@
-function getByte(x, y, Crb, Cib) {
-    var res = 0;
-    for (var i = 0; i < 8; i += 2) {
-        var Zr1 = Crb[x + i];
-        var Zi1 = Cib[y];
-        var Zr2 = Crb[x + i + 1];
-        var Zi2 = Cib[y];
+function mandelbrot(w, h) {
+    var output = new Array(Math.floor(w * h / 8) + 1);
+    var bit_num = 0;
+    var byte_acc = 0;
+    var iter = 50;
+    var limit = 2.0;
+    var Zr, Zi, Cr, Ci, Tr, Ti;
 
-        var b = 0;
-        var j = 49;
-        do {
-            var nZr1 = Zr1 * Zr1 - Zi1 * Zi1 + Crb[x + i];
-            var nZi1 = Zr1 * Zi1 + Zr1 * Zi1 + Cib[y];
-            Zr1 = nZr1;
-            Zi1 = nZi1;
+    var index = 0;
+    for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+            Zr = Zi = Tr = Ti = 0.0;
+            Cr = (2.0 * x / w - 1.5);
+            Ci = (2.0 * y / h - 1.0);
 
-            var nZr2 = Zr2 * Zr2 - Zi2 * Zi2 + Crb[x + i + 1];
-            var nZi2 = Zr2 * Zi2 + Zr2 * Zi2 + Cib[y];
-            Zr2 = nZr2;
-            Zi2 = nZi2;
-
-            if (Zr1 * Zr1 + Zi1 * Zi1 > 4) {
-                b |= 2;
-                if (b === 3) break;
+            var i = 0;
+            for (i = 0; i < iter && (Tr + Ti <= limit * limit); i++) {
+                Zi = 2.0 * Zr * Zi + Ci;
+                Zr = Tr - Ti + Cr;
+                Tr = Zr * Zr;
+                Ti = Zi * Zi;
             }
-            if (Zr2 * Zr2 + Zi2 * Zi2 > 4) {
-                b |= 1;
-                if (b === 3) break;
+
+            byte_acc <<= 1;
+            if (Tr + Ti <= limit * limit) byte_acc |= 0x01;
+
+            bit_num++;
+
+            if (bit_num == 8) {
+                output[index++] = byte_acc;
+                byte_acc = 0;
+                bit_num = 0;
+            } else if (x == w - 1) {
+                byte_acc <<= (8 - w % 8);
+                output[index++] = byte_acc;
+                byte_acc = 0;
+                bit_num = 0;
             }
-        } while (--j > 0);
-        res = (res << 2) + b;
+        }
     }
-    return res ^ -1;
+    return output;
 }
 
-function runMandelbrotBenchmark(n, iterations) {
+function runMandelbrotBenchmark(n) {
     var startTime = Date.now();
+    var iterations = 100;
 
-    // Run specified number of iterations
     for (var iter = 0; iter < iterations; iter++) {
-        var Crb = new Array(n + 7);
-        var Cib = new Array(n + 7);
-        var invN = 2.0 / n;
-
-        for (var i = 0; i < n; i++) {
-            Cib[i] = i * invN - 1.0;
-            Crb[i] = i * invN - 1.5;
-        }
-
-        var out = new Array(n);
-        for (var i = 0; i < n; i++) {
-            out[i] = new Array(Math.floor((n + 7) / 8));
-        }
-
-        // Single-threaded computation (JS doesn't have easy threading in Duktape)
-        for (var y = 0; y < n; y++) {
-            for (var xb = 0; xb < Math.floor((n + 7) / 8); xb++) {
-                out[y][xb] = getByte(xb * 8, y, Crb, Cib);
-            }
-        }
+        mandelbrot(n, n);
     }
 
     var duration = Date.now() - startTime;

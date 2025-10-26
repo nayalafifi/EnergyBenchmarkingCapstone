@@ -1,109 +1,75 @@
-#include "MandelbrotBenchmarkC.h"
+#include <jni.h>
 #include <vector>
-#include <thread>
-#include <sstream>
+#include <time.h>
 #include <android/log.h>
-#include <ctime>
 
-static int get_byte(int x, int y, const double* Crb, const double* Cib, int n) {
-    int res = 0;
-    for (int i = 0; i < 8; i += 2) {
-        double Zr1 = Crb[x + i];
-        double Zi1 = Cib[y];
-        double Zr2 = Crb[x + i + 1];
-        double Zi2 = Cib[y];
+static void mandelbrot(int w, int h, std::vector<unsigned char>& output) {
+    int bit_num = 0;
+    unsigned char byte_acc = 0;
+    const int iter = 50;
+    const double limit = 2.0;
+    double Zr, Zi, Cr, Ci, Tr, Ti;
 
-        int b = 0;
-        int j = 49;
-        do {
-            double nZr1 = Zr1 * Zr1 - Zi1 * Zi1 + Crb[x + i];
-            double nZi1 = Zr1 * Zi1 + Zr1 * Zi1 + Cib[y];
-            Zr1 = nZr1;
-            Zi1 = nZi1;
+    int index = 0;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            Zr = Zi = Tr = Ti = 0.0;
+            Cr = (2.0 * x / w - 1.5);
+            Ci = (2.0 * y / h - 1.0);
 
-            double nZr2 = Zr2 * Zr2 - Zi2 * Zi2 + Crb[x + i + 1];
-            double nZi2 = Zr2 * Zi2 + Zr2 * Zi2 + Cib[y];
-            Zr2 = nZr2;
-            Zi2 = nZi2;
-
-            if (Zr1 * Zr1 + Zi1 * Zi1 > 4) {
-                b |= 2;
-                if (b == 3) break;
+            int i = 0;
+            for (i = 0; i < iter && (Tr + Ti <= limit * limit); i++) {
+                Zi = 2.0 * Zr * Zi + Ci;
+                Zr = Tr - Ti + Cr;
+                Tr = Zr * Zr;
+                Ti = Zi * Zi;
             }
-            if (Zr2 * Zr2 + Zi2 * Zi2 > 4) {
-                b |= 1;
-                if (b == 3) break;
+
+            byte_acc <<= 1;
+            if (Tr + Ti <= limit * limit) byte_acc |= 0x01;
+
+            bit_num++;
+
+            if (bit_num == 8) {
+                output[index++] = byte_acc;
+                byte_acc = 0;
+                bit_num = 0;
+            } else if (x == w - 1) {
+                byte_acc <<= (8 - w % 8);
+                output[index++] = byte_acc;
+                byte_acc = 0;
+                bit_num = 0;
             }
-        } while (--j > 0);
-        res = (res << 2) + b;
-    }
-    return res ^ -1;
-}
-
-struct thread_data {
-    int n;
-    int y_start;
-    int y_end;
-    std::vector<std::vector<unsigned char>>* out;
-    double* Crb;
-    double* Cib;
-};
-
-void compute_rows(thread_data* data) {
-    for (int y = data->y_start; y < data->y_end; y++) {
-        for (int xb = 0; xb < (data->n + 7) / 8; xb++) {
-            (*data->out)[y][xb] = (unsigned char)get_byte(xb * 8, y, data->Crb, data->Cib, data->n);
         }
     }
 }
 
-extern "C"
-JNIEXPORT jstring JNICALL
+extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_myapplication_NativeBenchmarks_runMandelbrotBenchmarkCpp(
-        JNIEnv* env, jclass, jint n) {
+        JNIEnv *env,
+        jclass clazz,
+        jint n) {
 
     clock_t start = clock();
+    int iterations = 100;
 
-    int num_threads = 2 * std::thread::hardware_concurrency();
+    int size = (n * n / 8) + 1;
+    std::vector<unsigned char> output(size);
 
-    // Run 100 iterations to match Java
-    for (int iteration = 0; iteration < 100; iteration++) {
-        std::vector<double> Crb(n + 7);
-        std::vector<double> Cib(n + 7);
-        double invN = 2.0 / n;
-
-        for (int i = 0; i < n; i++) {
-            Cib[i] = i * invN - 1.0;
-            Crb[i] = i * invN - 1.5;
-        }
-
-        std::vector<std::vector<unsigned char>> out(n, std::vector<unsigned char>((n + 7) / 8));
-
-        std::vector<std::thread> threads;
-        std::vector<thread_data> thread_datas(num_threads);
-
-        int rows_per_thread = n / num_threads;
-        for (int i = 0; i < num_threads; i++) {
-            thread_datas[i].n = n;
-            thread_datas[i].y_start = i * rows_per_thread;
-            thread_datas[i].y_end = (i == num_threads - 1) ? n : (i + 1) * rows_per_thread;
-            thread_datas[i].out = &out;
-            thread_datas[i].Crb = Crb.data();
-            thread_datas[i].Cib = Cib.data();
-            threads.emplace_back(compute_rows, &thread_datas[i]);
-        }
-
-        for (auto& t : threads) {
-            t.join();
-        }
+    for (int iter = 0; iter < iterations; iter++) {
+        mandelbrot(n, n, output);
     }
 
     clock_t end = clock();
     long duration = ((end - start) * 1000) / CLOCKS_PER_SEC;
 
-    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK", "Mandelbrot C++ duration: %ldms", duration);
+    __android_log_print(ANDROID_LOG_DEBUG, "BENCHMARK",
+                        "Mandelbrot C++ completed: %ldms (%d iterations)",
+                        duration, iterations);
 
-    std::ostringstream oss;
-    oss << "Mandelbrot C++ completed: " << duration << "ms";
-    return env->NewStringUTF(oss.str().c_str());
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer),
+             "Mandelbrot C++ completed: %ldms (%d iterations)",
+             duration, iterations);
+    return env->NewStringUTF(buffer);
 }
