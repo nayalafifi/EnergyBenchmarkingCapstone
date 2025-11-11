@@ -1,0 +1,2 @@
+timestamp,language,benchmark,run,total_energy_j,duration_ms,ambient_j,audio_j,camera_j,cpu_j,gps_j,modem_j,screen_j,video_j,wifi_j,status
+2025-11-10T21:22:48.351449,C,NBody,1,0,18462,0,0,0,0,0,0,0,0,0,failed

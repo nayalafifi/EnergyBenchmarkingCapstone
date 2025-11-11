@@ -1,62 +1,62 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
 }
 
 android {
-    namespace = "com.example.myapplication"
+    namespace = "com.example.benchlib"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.myapplication"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        testApplicationId = "com.example.myapplication.test"
+        consumerProguardFiles("consumer-rules.pro")
 
-
-//        externalNativeBuild
-//        {
-//            cmake {
-//                cppFlags += "-std=c++17"
-//            }
-//        }
+        // ✅ Enable native (C/C++) builds
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++17"
+            }
+        }
     }
 
     buildTypes {
-        getByName("release") {
+        release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
-
-        getByName("debug") {
-            isDebuggable = true
-        }
-
-        create("benchmark") {
-            isDebuggable = true
-            isProfileable = true
-            matchingFallbacks += listOf("release")
-        }
     }
 
-    // ✅ Correct source structure
+    // ✅ Explicit folder structure (for Java, Kotlin, assets, and C++)
     sourceSets {
         named("main") {
-            java.srcDirs("src/main/java")
+            java.srcDirs("src/main/java", "src/main/kotlin")
             assets.srcDirs("src/main/assets")
-            jniLibs.srcDirs("src/main/jniLibs")
             res.srcDirs("src/main/res")
             manifest.srcFile("src/main/AndroidManifest.xml")
+            jniLibs.srcDirs("src/main/jniLibs")
+            jni.srcDirs("src/main/cpp")
         }
     }
 
+    // ✅ Include your native CMake build
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    // ✅ Merge assets with app (so app can read JS files from benchlib)
+    packaging {
+        resources {
+            excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -69,28 +69,23 @@ android {
 
     buildFeatures {
         buildConfig = true
-        prefab = true
     }
 }
 
 dependencies {
-    // --- Core Android libs ---
+    // Core Android libraries
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.core.ktx)
+
+    // ✅ JavaScript engine for JS benchmarks
     implementation("com.squareup.duktape:duktape-android:1.4.0")
 
-    // --- Link your benchmark library ---
-    implementation(project(":benchlib"))
+    // ✅ WebView (if you choose to execute JS benchmarks using a WebView context)
+    implementation("androidx.webkit:webkit:1.9.0")
 
-    // --- JUnit ---
+    // Testing dependencies
     testImplementation(libs.junit)
-
-    // --- Android instrumentation tests ---
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-
-    // --- Jetpack Benchmark ---
-    androidTestImplementation("androidx.benchmark:benchmark-junit4:1.2.4")
-    androidTestImplementation("androidx.benchmark:benchmark-macro-junit4:1.2.4")
 }
