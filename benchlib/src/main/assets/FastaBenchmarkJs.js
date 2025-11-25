@@ -1,4 +1,4 @@
-// === FASTA (finalized, CLBG-equivalent) ===
+; // FASTA JS benchmark (Duktape safe)
 
 // Random number generator constants
 let last = 42;
@@ -62,7 +62,7 @@ function fastaRepeat(n, seq) {
   let i = 0;
   while (n > 0) {
     const L = Math.min(60, n);
-    i = (i + L) % len; // emulate wrap-around
+    i = (i + L) % len;
     n -= L;
   }
 }
@@ -82,11 +82,11 @@ function fastaRandom(n, cumu) {
 }
 
 // Main benchmark driver
-function runFastaBenchmark(n, iterations = 3300) {
+function runFastaBenchmark(n, iterations = 3500) {
   const start = Date.now();
 
   for (let iter = 0; iter < iterations; iter++) {
-    last = 42; // reset RNG seed for repeatability
+    last = 42;
     fastaRepeat(2 * n, ALU);
     fastaRandom(3 * n, IUB_CUMU);
     fastaRandom(5 * n, HS_CUMU);
@@ -95,6 +95,3 @@ function runFastaBenchmark(n, iterations = 3300) {
   const duration = Date.now() - start;
   return `Fasta JS completed: ${duration}ms (${iterations} iterations)`;
 }
-
-// Example usage:
-// console.log(runFastaBenchmark(1000));

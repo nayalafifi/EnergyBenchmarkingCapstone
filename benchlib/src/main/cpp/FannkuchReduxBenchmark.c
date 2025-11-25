@@ -14,7 +14,7 @@ Java_com_example_benchlib_NativeBenchmarks_runFannkuchReduxBenchmarkC(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 120;
+    int iterations = 60;
 
     for (int iter = 0; iter < iterations; iter++) {
         // Create and initialize factorial lookup table

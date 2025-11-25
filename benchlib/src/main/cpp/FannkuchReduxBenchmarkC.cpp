@@ -64,7 +64,7 @@ Java_com_example_benchlib_NativeBenchmarks_runFannkuchReduxBenchmarkCpp(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 80;
+    int iterations = 60;
 
     for (int iter = 0; iter < iterations; iter++) {
         fannkuch(n);

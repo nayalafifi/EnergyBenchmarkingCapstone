@@ -11,6 +11,7 @@ import com.squareup.duktape.Duktape;
 import java.io.InputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 @RunWith(AndroidJUnit4.class)
@@ -18,14 +19,19 @@ public class BenchmarkJUnitTest {
 
     // ==================== Utilities ====================
 
-    // Helper to load JS source code from assets
+    // Correct JS asset loader (uses TARGET context, not TEST context)
     private String loadAssetAsString(String filename) {
         try (InputStream is = androidx.test.platform.app.InstrumentationRegistry
-                .getInstrumentation().getContext().getAssets().open(filename)) {
+                .getInstrumentation()
+                .getTargetContext()       // ← FIXED HERE
+                .getAssets()
+                .open(filename)) {
+
             int size = is.available();
             byte[] buffer = new byte[size];
             is.read(buffer);
             return new String(buffer, StandardCharsets.UTF_8);
+
         } catch (IOException e) {
             Log.e("ASSET", "Error loading asset: " + filename, e);
             return null;
@@ -36,11 +42,17 @@ public class BenchmarkJUnitTest {
     private String runJsBenchmark(String jsFile, String jsCall) {
         String jsSource = loadAssetAsString(jsFile);
         if (jsSource == null) return "ERROR: Could not load " + jsFile;
+
         try (Duktape duktape = Duktape.create()) {
+            // Print Duktape version for verification
+            String duktapeVersion = Objects.requireNonNull(duktape.evaluate("Duktape.version;")).toString();
+            Log.d("DUKTAPE_VERSION", "Duktape version is: " + duktapeVersion);
+
             duktape.evaluate(jsSource);
             Object result = duktape.evaluate(jsCall);
             return result != null ? result.toString() : "JS benchmark returned null";
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             Log.e("JS", "Error running JS benchmark", e);
             return "JS error: " + e.getMessage();
         }
@@ -52,7 +64,7 @@ public class BenchmarkJUnitTest {
             Log.d("BENCHMARK", "Starting: " + name);
             long start = System.currentTimeMillis();
 
-            String result = task.get();  // Run benchmark (it logs internally)
+            String result = task.get();  // Run benchmark
             long duration = System.currentTimeMillis() - start;
 
             Log.d("BENCHMARK_RESULT", name + " completed in " + duration + " ms");
@@ -101,9 +113,10 @@ public class BenchmarkJUnitTest {
     @Test public void runSpectralNormCpp() { measure("SpectralNormCpp", () -> NativeBenchmarks.runSpectralNormBenchmarkCpp(100)); }
 
     // ==================== JAVASCRIPT ====================
-    @Test public void runBinaryTreesJS() {
+    @Test public void
+    runBinaryTreesJS() {
         measure("BinaryTreesJS", () -> runJsBenchmark("BinaryTreesBenchmarkJs.js",
-                "runBinaryTreesBenchmark(4, 16)"));
+                "runBinaryTreesBenchmark(4,16)"));
     }
 
     @Test public void runFannkuchReduxJS() {
@@ -135,7 +148,6 @@ public class BenchmarkJUnitTest {
         measure("SpectralNormJS", () -> runJsBenchmark("SpectralNormBenchmarkJs.js",
                 "runSpectralNormBenchmark(5000)"));
     }
-
 
     // ==================== Helpers ====================
     private String generateLargeFasta() {

@@ -133,26 +133,6 @@
 //            case "RevCompCpp": return NativeBenchmarks.runRevCompBenchmarkCpp(generateLargeFasta());
 //            case "SpectralNormCpp": return NativeBenchmarks.runSpectralNormBenchmarkCpp(5000);
 //
-//            // ============ JavaScript ============
-//            case "BinaryTreesJavaScript":
-//                return runJsBenchmark("BinaryTreesBenchmarkJs.js","runBinaryTreesBenchmark(16, 150)");
-//            case "FannkuchReduxJavaScript":
-//                return runJsBenchmark("FannkuchReduxBenchmarkJs.js","runFannkuchReduxBenchmark(10, 80)");
-//            case "FastaJavaScript":
-//                return runJsBenchmark("FastaBenchmarkJs.js","runFastaBenchmark(10000, 500)");
-//            case "MandelbrotJavaScript":
-//                return runJsBenchmark("MandelbrotBenchmarkJs.js","runMandelbrotBenchmark(6000, 15)");
-//            case "NBodyJavaScript":
-//                return runJsBenchmark("NBodyBenchmarkJs.js","runNBodyBenchmark(500000, 143)");
-//            case "RevCompJavaScript":
-//                return runJsBenchmark("RevCompBenchmarkJs.js","runRevCompBenchmark(generateLargeFasta(), 1100)");
-//            case "SpectralNormJavaScript":
-//                return runJsBenchmark("SpectralNormBenchmarkJs.js","runSpectralNormBenchmark(100, 5000)");
-//            default:
-//                return "ERROR: Unknown benchmark '" + benchmark + "'";
-//        }
-//    }
-//
 //    private String runJsBenchmark(String jsFile, String jsCall) {
 //        String jsSource = loadAssetAsString(jsFile);
 //        if (jsSource == null) return "ERROR: Could not load " + jsFile;

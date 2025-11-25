@@ -15,7 +15,7 @@ object FannkuchReduxBenchmarkKotlin {
             val output = StringBuilder()
 
             // Run 20 times to extend duration to 30-60 seconds
-            for (iteration in 0 until 80) {
+            for (iteration in 0 until 60) {
                 val perm = IntArray(n)
                 val perm1 = IntArray(n) { it }
                 val count = IntArray(n)

@@ -13,8 +13,7 @@ public final class NBodyBenchmark {
         try {
             int n = 500_000;
 
-            // Start with 100 iterations as baseline
-            for (int iteration = 0; iteration < 143; iteration++) {
+            for (int iteration = 0; iteration < 40; iteration++) {
                 NBodySystem bodies = new NBodySystem();
                 for (int i = 0; i < n; ++i)
                     bodies.advance(0.01);

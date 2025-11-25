@@ -157,7 +157,7 @@ Java_com_example_benchlib_NativeBenchmarks_runFastaBenchmarkC(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 23000;
+    int iterations = 14200;
 
     for (int iter = 0; iter < iterations; iter++) {
         // Reset seed for each iteration

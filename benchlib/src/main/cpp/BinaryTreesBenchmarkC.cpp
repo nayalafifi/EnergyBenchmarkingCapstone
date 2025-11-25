@@ -35,7 +35,7 @@ Java_com_example_benchlib_NativeBenchmarks_runBinaryTreesBenchmarkCpp(
         jint maxDepth) {
 
     clock_t start = clock();
-    int iterations = 1000;
+    int iterations = 35;
 
     for (int iter = 0; iter < iterations; iter++) {
         int stretchDepth = maxDepth + 1;

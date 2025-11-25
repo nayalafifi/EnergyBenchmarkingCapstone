@@ -30,7 +30,7 @@ public final class BinaryTreesBenchmark {
         Trace.beginSection("BinaryTrees Benchmark");
 
         long startTime = System.currentTimeMillis();
-        int iterations = 90;
+        int iterations = 35;
 
         try {
             int minDepth = 4;

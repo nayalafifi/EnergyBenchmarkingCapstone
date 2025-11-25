@@ -46,7 +46,7 @@ object FastaBenchmarkKotlin {
                         "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" +
                         "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
 
-            for (iteration in 0 until 300) {
+            for (iteration in 0 until 2900) {
                 val temp = StringBuilder()
                 temp.append(">ONE Homo sapiens alu\n")
                 generateRepeat(ALU, n * 2, temp)

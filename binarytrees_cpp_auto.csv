@@ -1,0 +1,11 @@
+timestamp,language,benchmark,run,total_energy_j,duration_ms,charge_before,charge_after,temp_before_c,temp_after_c,status
+2025-11-24T21:02:58.877509,Cpp,BinaryTrees,1,129.2123,42922,79,78,24.6,25.6,success
+2025-11-24T21:04:47.120209,Cpp,BinaryTrees,1,127.3157,42696,78,78,25.8,25.8,success
+2025-11-24T21:06:33.934195,Cpp,BinaryTrees,1,128.5931,43184,78,78,25.8,25.8,success
+2025-11-24T21:08:20.493608,Cpp,BinaryTrees,1,131.7068,43527,78,78,25.8,26.5,success
+2025-11-24T21:10:06.684471,Cpp,BinaryTrees,1,127.7413,42644,78,78,26.5,26.5,success
+2025-11-24T21:11:53.818211,Cpp,BinaryTrees,1,132.1459,43682,78,77,26.5,27.1,success
+2025-11-24T21:13:39.798098,Cpp,BinaryTrees,1,127.8298,42904,77,77,27.2,27.2,success
+2025-11-24T21:15:25.871340,Cpp,BinaryTrees,1,128.1144,42778,77,77,27.2,27.2,success
+2025-11-24T21:17:11.437353,Cpp,BinaryTrees,1,128.3794,42796,77,77,27.2,27.2,success
+2025-11-24T21:18:57.725508,Cpp,BinaryTrees,1,127.8446,43368,77,77,27.8,27.8,success

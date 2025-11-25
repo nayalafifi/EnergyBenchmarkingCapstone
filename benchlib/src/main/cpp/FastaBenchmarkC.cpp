@@ -135,7 +135,7 @@ Java_com_example_benchlib_NativeBenchmarks_runFastaBenchmarkCpp(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 3300;
+    int iterations = 14200;
 
     for (int it = 0; it < iterations; it++) {
         seed = SEED;

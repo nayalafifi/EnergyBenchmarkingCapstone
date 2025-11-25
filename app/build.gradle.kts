@@ -13,32 +13,17 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testApplicationId = "com.example.myapplication.test"
-
-
-//        externalNativeBuild
-//        {
-//            cmake {
-//                cppFlags += "-std=c++17"
-//            }
-//        }
     }
 
     buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-
         getByName("debug") {
             isDebuggable = true
         }
-
+        getByName("release") {
+            isMinifyEnabled = false
+        }
         create("benchmark") {
             isDebuggable = true
             isProfileable = true
@@ -46,17 +31,18 @@ android {
         }
     }
 
-    // ✅ Correct source structure
+    // ----------------------------------------------------
+    // MERGE BENCHLIB ASSETS INTO *MAIN* APK ONLY
+    // ----------------------------------------------------
     sourceSets {
-        named("main") {
-            java.srcDirs("src/main/java")
-            assets.srcDirs("src/main/assets")
-            jniLibs.srcDirs("src/main/jniLibs")
-            res.srcDirs("src/main/res")
-            manifest.srcFile("src/main/AndroidManifest.xml")
+        getByName("main") {
+            assets.srcDirs(
+                "src/main/assets",
+                "../benchlib/assets"    // <-- this is the critical part
+            )
         }
     }
-
+    // ----------------------------------------------------
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -68,29 +54,30 @@ android {
     }
 
     buildFeatures {
-        buildConfig = true
         prefab = true
+        buildConfig = true
     }
 }
 
 dependencies {
-    // --- Core Android libs ---
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.core.ktx)
-    implementation("com.squareup.duktape:duktape-android:1.4.0")
 
-    // --- Link your benchmark library ---
+    // Duktape JS engine
+    implementation(libs.duktape.android)
+
+    // Your native and JS benchmark library
     implementation(project(":benchlib"))
 
-    // --- JUnit ---
+    // Unit tests
     testImplementation(libs.junit)
 
-    // --- Android instrumentation tests ---
+    // Instrumentation tests
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
-    // --- Jetpack Benchmark ---
-    androidTestImplementation("androidx.benchmark:benchmark-junit4:1.2.4")
-    androidTestImplementation("androidx.benchmark:benchmark-macro-junit4:1.2.4")
+    // Benchmarking libs
+    androidTestImplementation("androidx.benchmark:benchmark-junit4:1.4.1")
+    androidTestImplementation("androidx.benchmark:benchmark-macro-junit4:1.4.1")
 }

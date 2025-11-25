@@ -14,7 +14,7 @@ public final class MandelbrotBenchmark {
 
         try {
             int N = 6000;
-            int iterations = 70;
+            int iterations = 40;
 
             // Start with 5 iterations as baseline test
             for (int it = 0; it < iterations; it++) {

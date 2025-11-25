@@ -18,8 +18,7 @@ public final class SpectralNormBenchmark {
         try {
             final int n = 100;
 
-            // Run 5000 iterations as baseline
-            for (int iteration = 0; iteration < 400; iteration++) {
+            for (int iteration = 0; iteration < 175; iteration++) {
                 final double[] u = new double[n];
                 final double[] v = new double[n];
                 for (int i = 0; i < n; i++) u[i] = 1.0;

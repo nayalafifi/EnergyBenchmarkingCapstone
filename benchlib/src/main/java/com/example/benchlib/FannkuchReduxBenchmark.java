@@ -15,7 +15,7 @@ public final class FannkuchReduxBenchmark {
             StringBuilder output = new StringBuilder();
 
             // Run 80 times to extend duration to 30-60 seconds
-            for (int iteration = 0; iteration < 80; iteration++) {
+            for (int iteration = 0; iteration < 60; iteration++) {
                 int[] perm = new int[n];
                 int[] perm1 = new int[n];
                 int[] count = new int[n];

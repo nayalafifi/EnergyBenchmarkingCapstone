@@ -3,6 +3,14 @@ project(benchlib LANGUAGES C CXX)
 
 set(BENCHLIB_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
+# Optional: keep these, but they only matter if build type is Release
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+
+# Force optimization for all builds (debug + release)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -ffast-math -funroll-loops")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -funroll-loops")
+
 set(NATIVE_C_SOURCES
         ${BENCHLIB_CPP_DIR}/BinaryTreesBenchmark.c
         ${BENCHLIB_CPP_DIR}/FannkuchReduxBenchmark.c

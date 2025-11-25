@@ -31,7 +31,7 @@ public final class RevCompBenchmark {
             String input = inputBuilder.toString();
 
             // Run 1000 iterations as baseline
-            for (int iteration = 0; iteration < 1000; iteration++) {
+            for (int iteration = 0; iteration < 600; iteration++) {
                 byte[] buf = input.getBytes();
 
                 // Simple single-threaded reverse complement

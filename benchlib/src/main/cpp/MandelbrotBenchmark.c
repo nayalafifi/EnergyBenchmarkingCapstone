@@ -57,7 +57,7 @@ Java_com_example_benchlib_NativeBenchmarks_runMandelbrotBenchmarkC(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 5;
+    int iterations = 40;
 
     // Align to 8 pixels as per CLBG
     int size = (n + 7) & ~7;

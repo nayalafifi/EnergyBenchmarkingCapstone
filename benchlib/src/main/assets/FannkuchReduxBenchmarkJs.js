@@ -54,7 +54,7 @@ function fannkuch(n) {
 
 function runFannkuchReduxBenchmark(n) {
     var startTime = Date.now();
-    var iterations = 80;
+    var iterations = 60;
 
     for (var iter = 0; iter < iterations; iter++) {
         fannkuch(n);

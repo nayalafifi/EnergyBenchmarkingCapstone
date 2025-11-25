@@ -25,7 +25,7 @@ object BinaryTreesBenchmarkKotlin {
         Trace.beginSection("BinaryTrees Benchmark")
 
         val startTime = System.currentTimeMillis()
-        val iterations = 90
+        val iterations = 35
 
         try {
             val minDepth = 4

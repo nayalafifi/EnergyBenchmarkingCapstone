@@ -22,7 +22,7 @@ public final class FastaBenchmark {
                             "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
 
             // Run 3300 iterations to get ~40 seconds
-            for (int iteration = 0; iteration < 2000; iteration++) {
+            for (int iteration = 0; iteration < 14200; iteration++) {
                 StringBuilder temp = new StringBuilder();
                 temp.append(">ONE Homo sapiens alu\n");
                 generateRepeat(ALU, n * 2, temp);

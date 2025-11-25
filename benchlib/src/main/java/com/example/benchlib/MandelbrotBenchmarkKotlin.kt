@@ -14,7 +14,7 @@ object MandelbrotBenchmarkKotlin {
         try {
             val N = 6000
 
-            for (iteration in 0 until 25) {
+            for (iteration in 0 until 40) {
                 val out = Array(N) { ByteArray((N + 7) / 8) }
                 val yCt = AtomicInteger(0)
 

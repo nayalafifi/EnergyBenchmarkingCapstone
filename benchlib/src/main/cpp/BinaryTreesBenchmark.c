@@ -52,7 +52,7 @@ Java_com_example_benchlib_NativeBenchmarks_runBinaryTreesBenchmarkC(
         jint maxDepth) {
 
     clock_t start = clock();
-    int iterations = 30;
+    int iterations = 35;
 
     for (int iter = 0; iter < iterations; iter++) {
         // Set minimum and maximum depths according to CLBG algorithm

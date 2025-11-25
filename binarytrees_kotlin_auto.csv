@@ -1,0 +1,11 @@
+timestamp,language,benchmark,run,total_energy_j,duration_ms,charge_before,charge_after,temp_before_c,temp_after_c,status
+2025-11-22T01:25:41.310274,Kotlin,BinaryTrees,1,73.7670,24420,85,85,28.2,28.2,success
+2025-11-22T01:27:09.498895,Kotlin,BinaryTrees,1,74.5242,24622,84,84,27.9,27.9,success
+2025-11-22T01:28:38.440259,Kotlin,BinaryTrees,1,74.5970,24274,84,84,27.9,27.9,success
+2025-11-22T01:30:06.468447,Kotlin,BinaryTrees,1,73.6434,24361,84,84,27.8,27.8,success
+2025-11-22T01:31:34.628366,Kotlin,BinaryTrees,1,74.0171,24539,84,84,27.8,27.7,success
+2025-11-22T01:33:02.998558,Kotlin,BinaryTrees,1,74.4740,24705,84,84,27.7,27.7,success
+2025-11-22T01:34:31.429056,Kotlin,BinaryTrees,1,73.3383,24806,84,84,27.7,27.7,success
+2025-11-22T01:36:00.564871,Kotlin,BinaryTrees,1,76.1131,24832,84,83,27.7,27.6,success
+2025-11-22T01:37:30.877096,Kotlin,BinaryTrees,1,74.8913,24777,83,83,27.6,27.6,success
+2025-11-22T01:38:59.073903,Kotlin,BinaryTrees,1,72.5424,24577,83,83,27.6,27.6,success

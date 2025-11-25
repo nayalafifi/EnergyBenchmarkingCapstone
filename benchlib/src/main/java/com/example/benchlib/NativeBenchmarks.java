@@ -8,7 +8,6 @@ public class NativeBenchmarks {
     // BinaryTrees C and C++ versions
     public static native String runBinaryTreesBenchmarkC(int minDepth, int maxDepth);
     public static native String runBinaryTreesBenchmarkCpp(int minDepth, int maxDepth);
-
     // FannkuchRedux C and C++ versions
     public static native String runFannkuchReduxBenchmarkC(int n);
     public static native String runFannkuchReduxBenchmarkCpp(int n);
