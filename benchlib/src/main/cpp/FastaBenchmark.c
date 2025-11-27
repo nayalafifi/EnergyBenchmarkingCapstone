@@ -7,18 +7,14 @@
 #include <android/log.h>
 
 #define IM 139968
-#define IA   3877
-#define IC  29573
-#define SEED   42
-
-#ifndef BUFLINES
-#define BUFLINES 100
-#endif
+#define IA 3877
+#define IC 29573
+#define SEED 42
 
 #define LINELEN 60
 
 static uint32_t seed = SEED;
-#define uint32_rand() ( seed = (seed * IA + IC ) % IM )
+#define uint32_rand() (seed = (seed * IA + IC) % IM)
 
 static const char *alu =
         "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
@@ -43,111 +39,60 @@ static const float homosapiens_p[] = {
         0.3015094502008f
 };
 
-// Generate repeated sequence (no actual output, just computation)
+// Generate repeated sequence
 static void repeat_fasta(const char *seq, const int n) {
     const int len = strlen(seq);
-    int buflen1 = len + LINELEN;
-    char *buffer1 = malloc(buflen1);
+    int pos = 0;
 
-    if (!buffer1) return;
+    for (int remaining = n; remaining > 0;) {
+        int line_len = remaining < LINELEN ? remaining : LINELEN;
 
-    // Fill buffer with repeated sequence
-    if (LINELEN < len) {
-        memcpy(buffer1, seq, len);
-        memcpy(buffer1 + len, seq, LINELEN);
-    } else {
-        int i;
-        for (i = 0; i < LINELEN/len; i++) {
-            memcpy(buffer1 + i*len, seq, len);
+        for (int i = 0; i < line_len; i++) {
+            // Would output seq[pos] here
+            volatile char dummy = seq[pos];
+            (void)dummy;
+            pos = (pos + 1) % len;
         }
-        if (i * len < LINELEN) {
-            memcpy(buffer1 + i*len, seq, LINELEN - i*len);
-        }
+
+        remaining -= line_len;
     }
-
-    // Process the data (computation only, no output)
-    int total_lines = n / LINELEN;
-    int remaining = n % LINELEN;
-
-    // Simulate processing
-    for (int i = 0; i < total_lines; i++) {
-        // Would output LINELEN characters here
-        volatile char dummy = buffer1[i % buflen1];
-        (void)dummy;
-    }
-
-    if (remaining > 0) {
-        // Would output remaining characters here
-        volatile char dummy = buffer1[0];
-        (void)dummy;
-    }
-
-    free(buffer1);
 }
 
-// Build hash table for random generation
-static char * build_hash(const char *symb, const float *probability) {
-    char *hash = malloc(IM);
-    if (!hash) return NULL;
-
-    float sum = 0.0f;
-    const int len = strlen(symb);
-    int j = 0;
-
-    for (int i = 0; i < IM; i++) {
-        float r = (float)i / IM;
-
-        while (j < len - 1 && r >= sum + probability[j]) {
-            sum += probability[j];
-            j++;
-        }
-
-        hash[i] = symb[j];
-    }
-
-    return hash;
-}
-
-// Generate random sequence (computation only)
+// Generate random sequence using TCLBG algorithm
 static void random_fasta(const char *symb, const float *probability, const int n) {
-    char *hash = build_hash(symb, probability);
-    if (!hash) return;
+    const int len = strlen(symb);
 
-    // Allocate buffer for one line
-    char *buffer = malloc(LINELEN + 1);
-    if (!buffer) {
-        free(hash);
-        return;
+    // Build cumulative probability table (like TCLBG)
+    uint32_t cumul_p[len];
+    float cumul_acc = 0.0f;
+
+    for (int i = 0; i < len; i++) {
+        cumul_acc += probability[i];
+        cumul_p[i] = 1 + (uint32_t)(cumul_acc * (float)IM);
     }
 
-    // Generate sequences
-    int total_lines = n / LINELEN;
-    int remaining = n % LINELEN;
+    int col = 0;
+    for (int remaining = n; remaining > 0; remaining--) {
+        uint32_t r = uint32_rand();
 
-    // Full lines
-    for (int i = 0; i < total_lines; i++) {
-        for (int k = 0; k < LINELEN; k++) {
-            uint32_t v = uint32_rand();
-            buffer[k] = hash[v];
+        // Find the nucleotide using cumulative probabilities
+        int ncnt = 0;
+        for (int nid = 0; nid < len; nid++) {
+            if (cumul_p[nid] <= r) {
+                ncnt++;
+            }
         }
-        // Process the line (no actual output)
-        volatile char dummy = buffer[0];
-        (void)dummy;
-    }
 
-    // Partial line
-    if (remaining > 0) {
-        for (int k = 0; k < remaining; k++) {
-            uint32_t v = uint32_rand();
-            buffer[k] = hash[v];
+        char c = symb[ncnt];
+
+        // Would output character here
+        volatile char dummy = c;
+        (void)dummy;
+
+        if (++col >= LINELEN) {
+            col = 0;
         }
-        // Process the partial line
-        volatile char dummy = buffer[0];
-        (void)dummy;
     }
-
-    free(buffer);
-    free(hash);
 }
 
 JNIEXPORT jstring JNICALL
@@ -157,7 +102,7 @@ Java_com_example_benchlib_NativeBenchmarks_runFastaBenchmarkC(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 14200;
+    int iterations = 1;
 
     for (int iter = 0; iter < iterations; iter++) {
         // Reset seed for each iteration

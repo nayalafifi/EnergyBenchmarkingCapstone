@@ -5,57 +5,71 @@ import android.util.Log;
 
 public final class BinaryTreesBenchmark {
 
-    static class TreeNode {
-        TreeNode left, right;
+    private static final int MIN_DEPTH = 4;
 
-        TreeNode(TreeNode left, TreeNode right) {
+    private static final class TreeNode {
+        private final TreeNode left;
+        private final TreeNode right;
+
+        private TreeNode(final TreeNode left, final TreeNode right) {
             this.left = left;
             this.right = right;
         }
 
-        static TreeNode bottomUpTree(int depth) {
-            if (depth > 0)
-                return new TreeNode(bottomUpTree(depth - 1), bottomUpTree(depth - 1));
-            else
-                return new TreeNode(null, null);
+        private TreeNode() {
+            this(null, null);
         }
 
-        int itemCheck() {
-            if (left == null) return 1;
+        private int itemCheck() {
+            // if necessary deallocate here
+            if (null == left) {
+                return 1;
+            }
             return 1 + left.itemCheck() + right.itemCheck();
         }
+    }
+
+    private static TreeNode bottomUpTree(final int depth) {
+        if (0 < depth) {
+            return new TreeNode(bottomUpTree(depth - 1), bottomUpTree(depth - 1));
+        }
+        return new TreeNode();
     }
 
     public static String runBenchmark() {
         Trace.beginSection("BinaryTrees Benchmark");
 
         long startTime = System.currentTimeMillis();
-        int iterations = 35;
+        int iterations = 10;
 
         try {
-            int minDepth = 4;
-            int maxDepth = 16;
-            int stretchDepth = maxDepth + 1;
+            int n = 18;
+            final int maxDepth = n < (MIN_DEPTH + 2) ? MIN_DEPTH + 2 : n;
+            final int stretchDepth = maxDepth + 1;
 
-            // Run 100 iterations to get ~30 seconds
             for (int iteration = 0; iteration < iterations; iteration++) {
-                {
-                    TreeNode stretchTree = TreeNode.bottomUpTree(stretchDepth);
-                    stretchTree.itemCheck(); // Just compute, don't store
-                }
+                // Stretch tree
+                int stretchCheck = bottomUpTree(stretchDepth).itemCheck();
 
-                TreeNode longLivedTree = TreeNode.bottomUpTree(maxDepth);
+                // Long-lived tree
+                final TreeNode longLivedTree = bottomUpTree(maxDepth);
 
-                for (int depth = minDepth; depth <= maxDepth; depth += 2) {
-                    int iterationsInner = 1 << (maxDepth - depth + minDepth);
+                // Create and check trees at different depths
+                // Note: Reference uses parallel execution here, but for Android
+                // we'll keep it sequential to avoid threading complexity
+                for (int d = MIN_DEPTH; d <= maxDepth; d += 2) {
+                    final int depth = d;
                     int check = 0;
-                    for (int i = 0; i < iterationsInner; i++) {
-                        TreeNode tree = TreeNode.bottomUpTree(depth);
-                        check += tree.itemCheck();
+
+                    final int iterationsInner = 1 << (maxDepth - depth + MIN_DEPTH);
+                    for (int i = 1; i <= iterationsInner; ++i) {
+                        final TreeNode treeNode1 = bottomUpTree(depth);
+                        check += treeNode1.itemCheck();
                     }
                 }
 
-                longLivedTree.itemCheck(); // Just compute, don't store
+                // Check long-lived tree
+                int longLivedCheck = longLivedTree.itemCheck();
             }
 
             long duration = System.currentTimeMillis() - startTime;

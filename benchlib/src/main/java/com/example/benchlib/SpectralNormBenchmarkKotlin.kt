@@ -3,82 +3,150 @@ package com.example.benchlib
 import android.os.Trace
 import android.util.Log
 import java.text.DecimalFormat
+import java.text.NumberFormat
+import java.util.concurrent.CyclicBarrier
+import kotlin.math.sqrt
 
 object SpectralNormBenchmarkKotlin {
-
-    private val formatter = DecimalFormat("#.000000000")
-    private val NCPU = Runtime.getRuntime().availableProcessors()
+    private val formatter: NumberFormat = DecimalFormat("#.000000000")
 
     fun runBenchmark(): String {
         Trace.beginSection("SpectralNorm Benchmark")
 
         val startTime = System.currentTimeMillis()
 
-        return try {
+        try {
             val n = 100
+            val iterations = 1
 
-            // Run 5000 iterations to match Java
-            for (iteration in 0 until 400) {
-                val u = DoubleArray(n) { 1.0 }
-                val v = DoubleArray(n)
-
-                repeat(10) {
-                    aTimesTransp(v, u, n)
-                    aTimesTransp(u, v, n)
-                }
+            for (iteration in 0..<iterations) {
+                val result = spectralnormGame(n)
+                // Optionally log result (commented out for performance)
+                // Log.d("BENCHMARK", "Iteration " + iteration + ": " + formatter.format(result));
             }
 
             val duration = System.currentTimeMillis() - startTime
-            Log.d("BENCHMARK", "SpectralNorm Kotlin duration: ${duration}ms")
+            val result =
+                "SpectralNorm completed: " + duration + "ms (" + iterations + " iterations)"
+            Log.d("BENCHMARK", result)
 
-            "SpectralNorm benchmark completed: ${duration}ms"
+            return result
         } catch (e: Exception) {
-            "SpectralNorm Benchmark failed: ${e.message}"
+            Log.e("BENCHMARK", "SpectralNorm failed", e)
+            return "SpectralNorm failed: " + e.message
         } finally {
             Trace.endSection()
         }
     }
 
-    private fun aTimesTransp(v: DoubleArray, u: DoubleArray, n: Int) {
-        val x = DoubleArray(n)
-        val threads = Array(NCPU) { i ->
-            val start = i * n / NCPU
-            val end = (i + 1) * n / NCPU
-            Times(x, start, end, u, false, n)
+    private fun spectralnormGame(n: Int): Double {
+        // create unit vector
+        val u = DoubleArray(n)
+        val v = DoubleArray(n)
+        val tmp = DoubleArray(n)
+
+        for (i in 0..<n) u[i] = 1.0
+
+        // get available processor, then set up syn object
+        val nthread = Runtime.getRuntime().availableProcessors()
+        Approximate.barrier = CyclicBarrier(nthread)
+
+        val chunk = n / nthread
+        val ap = arrayOfNulls<Approximate>(nthread)
+
+        for (i in 0..<nthread) {
+            val r1 = i * chunk
+            val r2 = if (i < (nthread - 1)) r1 + chunk else n
+
+            ap[i] = Approximate(u, v, tmp, r1, r2)
         }
-        threads.forEach { it.start() }
-        threads.forEach { it.join() }
 
-        for (i in 0 until NCPU) {
-            val start = i * n / NCPU
-            val end = (i + 1) * n / NCPU
-            threads[i] = Times(v, start, end, x, true, n)
-        }
-        threads.forEach { it.start() }
-        threads.forEach { it.join() }
-    }
+        var vBv = 0.0
+        var vv = 0.0
+        for (i in 0..<nthread) {
+            try {
+                ap[i]!!.join()
 
-    private class Times(
-        private val v: DoubleArray,
-        private val start: Int,
-        private val end: Int,
-        private val u: DoubleArray,
-        private val transpose: Boolean,
-        private val size: Int
-    ) : Thread() {
-
-        override fun run() {
-            for (i in start until end) {
-                var sum = 0.0
-                for (j in 0 until size) {
-                    sum += u[j] / a(if (transpose) j else i, if (transpose) i else j)
-                }
-                v[i] = sum
+                vBv += ap[i]!!.m_vBv
+                vv += ap[i]!!.m_vv
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
-        private fun a(i: Int, j: Int): Int {
-            return (i + j) * (i + j + 1) / 2 + i + 1
+        return sqrt(vBv / vv)
+    }
+
+    private class Approximate(
+        private val _u: DoubleArray,
+        private val _v: DoubleArray,
+        private val _tmp: DoubleArray,
+        private val range_begin: Int,
+        private val range_end: Int
+    ) :
+        Thread() {
+        var m_vBv: Double = 0.0
+        var m_vv: Double = 0.0
+
+        init {
+            start()
+        }
+
+        override fun run() {
+            // 20 steps of the power method
+            for (i in 0..9) {
+                MultiplyAtAv(_u, _tmp, _v)
+                MultiplyAtAv(_v, _tmp, _u)
+            }
+
+            for (i in range_begin..<range_end) {
+                m_vBv += _u[i] * _v[i]
+                m_vv += _v[i] * _v[i]
+            }
+        }
+
+        /* multiply vector v by matrix A, each thread evaluate its range only */
+        fun MultiplyAv(v: DoubleArray, Av: DoubleArray) {
+            for (i in range_begin..<range_end) {
+                var sum = 0.0
+                for (j in v.indices) sum += eval_A(i, j) * v[j]
+
+                Av[i] = sum
+            }
+        }
+
+        /* multiply vector v by matrix A transposed */
+        fun MultiplyAtv(v: DoubleArray, Atv: DoubleArray) {
+            for (i in range_begin..<range_end) {
+                var sum = 0.0
+                for (j in v.indices) sum += eval_A(j, i) * v[j]
+
+                Atv[i] = sum
+            }
+        }
+
+        /* multiply vector v by matrix A and then by matrix A transposed */
+        fun MultiplyAtAv(v: DoubleArray, tmp: DoubleArray, AtAv: DoubleArray) {
+            try {
+                MultiplyAv(v, tmp)
+                // all thread must syn at completion
+                barrier!!.await()
+                MultiplyAtv(tmp, AtAv)
+                // all thread must syn at completion
+                barrier!!.await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        companion object {
+            internal var barrier: CyclicBarrier? = null
+
+            /* return element i,j of infinite matrix A */
+            private fun eval_A(i: Int, j: Int): Double {
+                val div = (((i + j) * (i + j + 1) ushr 1) + i + 1)
+                return 1.0 / div
+            }
         }
     }
 }

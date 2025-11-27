@@ -6,7 +6,8 @@
 #include <android/log.h>
 
 static double eval_A(int i, int j) {
-    return 1.0 / ((i + j) * (i + j + 1) / 2 + i + 1);
+    // Reference uses bit shift: (((i+j) * (i+j+1)) >> 1) + i + 1
+    return 1.0 / ((((i + j) * (i + j + 1)) >> 1) + i + 1);
 }
 
 static void eval_A_times_u(int N, const double *u, double *Au) {
@@ -44,6 +45,7 @@ static double spectral_norm(int N) {
 
     for (i = 0; i < N; i++) u[i] = 1;
 
+    // 10 iterations, matching reference
     for (i = 0; i < 10; i++) {
         eval_AtA_times_u(N, u, v);
         eval_AtA_times_u(N, v, u);
@@ -70,7 +72,7 @@ Java_com_example_benchlib_NativeBenchmarks_runSpectralNormBenchmarkC(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 400;
+    int iterations = 1;  // Match Java/Kotlin iterations for consistency
 
     for (int iter = 0; iter < iterations; iter++) {
         spectral_norm(n);

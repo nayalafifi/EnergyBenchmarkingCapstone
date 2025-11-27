@@ -4,43 +4,53 @@
 #include <time.h>
 #include <android/log.h>
 
-static double eval_A(int i, int j) {
-    return 1.0 / ((i + j) * (i + j + 1) / 2 + i + 1);
+// Match TCLBG's index calculation (bit shift optimization)
+template <bool modei>
+static inline int Index(int i, int j) {
+    return (((i + j) * (i + j + 1)) >> 1) + (modei ? i : j) + 1;
 }
 
-static void eval_A_times_u(int N, const std::vector<double>& u, std::vector<double>& Au) {
+// Evaluate A times u
+static void eval_A_times_u(int N, const double* u, double* Au) {
     for (int i = 0; i < N; i++) {
-        Au[i] = 0;
+        double sum = 0.0;
         for (int j = 0; j < N; j++) {
-            Au[i] += eval_A(i, j) * u[j];
+            sum += u[j] / double(Index<true>(i, j));
         }
+        Au[i] = sum;
     }
 }
 
-static void eval_At_times_u(int N, const std::vector<double>& u, std::vector<double>& Au) {
+// Evaluate A^T times u
+static void eval_At_times_u(int N, const double* u, double* Au) {
     for (int i = 0; i < N; i++) {
-        Au[i] = 0;
+        double sum = 0.0;
         for (int j = 0; j < N; j++) {
-            Au[i] += eval_A(j, i) * u[j];
+            sum += u[j] / double(Index<false>(i, j));
         }
+        Au[i] = sum;
     }
 }
 
-static void eval_AtA_times_u(int N, const std::vector<double>& u, std::vector<double>& AtAu) {
-    std::vector<double> v(N);
-    eval_A_times_u(N, u, v);
-    eval_At_times_u(N, v, AtAu);
+// Evaluate A^T*A times u
+static void eval_AtA_times_u(int N, const double* u, double* AtAu, double* tmp) {
+    eval_A_times_u(N, u, tmp);
+    eval_At_times_u(N, tmp, AtAu);
 }
 
 static double spectral_norm(int N) {
+    // Use aligned arrays for better performance
     std::vector<double> u(N, 1.0);
     std::vector<double> v(N);
+    std::vector<double> tmp(N);
 
+    // Power iteration: 10 times
     for (int i = 0; i < 10; i++) {
-        eval_AtA_times_u(N, u, v);
-        eval_AtA_times_u(N, v, u);
+        eval_AtA_times_u(N, u.data(), v.data(), tmp.data());
+        eval_AtA_times_u(N, v.data(), u.data(), tmp.data());
     }
 
+    // Calculate eigenvalue
     double vBv = 0.0, vv = 0.0;
     for (int i = 0; i < N; i++) {
         vBv += u[i] * v[i];
@@ -57,7 +67,7 @@ Java_com_example_benchlib_NativeBenchmarks_runSpectralNormBenchmarkCpp(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 400;
+    int iterations = 1;
 
     for (int iter = 0; iter < iterations; iter++) {
         spectral_norm(n);

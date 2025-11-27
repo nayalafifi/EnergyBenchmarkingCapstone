@@ -87,7 +87,7 @@ Java_com_example_benchlib_NativeBenchmarks_runNBodyBenchmarkC(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 143;
+    int iterations = 1;
 
     struct body bodies[5] = {
             {0, 0, 0, 0, 0, 0, SOLAR_MASS},

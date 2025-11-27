@@ -9,10 +9,12 @@ android {
 
     defaultConfig {
         applicationId = "com.example.myapplication"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
+
         versionCode = 1
         versionName = "1.0"
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testApplicationId = "com.example.myapplication.test"
     }
@@ -31,18 +33,21 @@ android {
         }
     }
 
-    // ----------------------------------------------------
-    // MERGE BENCHLIB ASSETS INTO *MAIN* APK ONLY
-    // ----------------------------------------------------
+    // ========= ASSET MERGING =========
     sourceSets {
         getByName("main") {
             assets.srcDirs(
                 "src/main/assets",
-                "../benchlib/assets"    // <-- this is the critical part
+                "../benchlib/assets"     // Your JS files from benchlib
+            )
+        }
+        getByName("androidTest") {
+            assets.srcDirs(
+                "src/androidTest/assets"
             )
         }
     }
-    // ----------------------------------------------------
+    // ==================================
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -64,20 +69,21 @@ dependencies {
     implementation(libs.material)
     implementation(libs.core.ktx)
 
-    // Duktape JS engine
-    implementation(libs.duktape.android)
-
-    // Your native and JS benchmark library
+    // Your native benchmarks jni + JS files
     implementation(project(":benchlib"))
 
     // Unit tests
     testImplementation(libs.junit)
 
-    // Instrumentation tests
+    // Instrumented Tests
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
-    // Benchmarking libs
+    // Android Benchmark Libraries (for profiling)
     androidTestImplementation("androidx.benchmark:benchmark-junit4:1.4.1")
     androidTestImplementation("androidx.benchmark:benchmark-macro-junit4:1.4.1")
+
+    implementation("androidx.javascriptengine:javascriptengine:1.0.0")
+    androidTestImplementation("androidx.javascriptengine:javascriptengine:1.0.0")
+
 }

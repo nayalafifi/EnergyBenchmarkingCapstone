@@ -3,20 +3,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <time.h>
 #include <android/log.h>
 
 #define IM 139968
-#define IA   3877
-#define IC  29573
-#define SEED   42
+#define IA 3877
+#define IC 29573
+#define SEED 42
 
-static uint32_t seed = SEED;
-#define uint32_rand() ( seed = (seed * IA + IC ) % IM )
-
-#ifndef BUFLINES
-#define BUFLINES 100
-#endif
+const int LINELEN = 60;
 
 static const char *alu =
         "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
@@ -27,105 +23,92 @@ static const char *alu =
         "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
         "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
 
-static const char *iub = "acgtBDHKMNRSVWY";
-static const float iub_p[] = {
-        0.27f, 0.12f, 0.12f, 0.27f, 0.02f, 0.02f, 0.02f, 0.02f,
-        0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f
+struct IUB {
+    float p;
+    char c;
 };
 
-static const char *homosapiens = "acgt";
-static const float homosapiens_p[] = {
-        0.3029549426680f,
-        0.1979883004921f,
-        0.1975473066391f,
-        0.3015094502008f
+static IUB iub[] = {
+        {0.27f, 'a'}, {0.12f, 'c'}, {0.12f, 'g'}, {0.27f, 't'},
+        {0.02f, 'B'}, {0.02f, 'D'}, {0.02f, 'H'}, {0.02f, 'K'},
+        {0.02f, 'M'}, {0.02f, 'N'}, {0.02f, 'R'}, {0.02f, 'S'},
+        {0.02f, 'V'}, {0.02f, 'W'}, {0.02f, 'Y'}
 };
 
-#define LINELEN 60
+static IUB homosapiens[] = {
+        {0.3029549426680f, 'a'},
+        {0.1979883004921f, 'c'},
+        {0.1975473066391f, 'g'},
+        {0.3015094502008f, 't'}
+};
 
-static void repeat_fasta(const char *seq, const int n) {
+const float IM_RECIPROCAL = 1.0f / IM;
+
+class Random {
+public:
+    uint32_t gen() {
+        last = (last * IA + IC) % IM;
+        return last;
+    }
+    void reset() { last = SEED; }
+private:
+    int last = SEED;
+};
+
+static void make_cumulative(IUB *table, int len) {
+    float cp = 0.0f;
+    for (int i = 0; i < len; i++) {
+        cp += table[i].p;
+        table[i].p = cp;
+    }
+}
+
+static void repeat_fasta(const char *seq, int n) {
     const int len = strlen(seq);
-    int buflen1 = len + LINELEN;
-    char *buffer1 = new char[buflen1];
-    int i;
+    int pos = 0;
+    int remaining = n;
 
-    if (LINELEN < len) {
-        memcpy(buffer1, seq, len);
-        memcpy(buffer1+len, seq, LINELEN);
-    } else {
-        for (i=0; i < LINELEN/len; i++) memcpy(buffer1+i*len, seq, len);
-        memcpy(buffer1+i*len, seq, n - i*n);
-    }
+    while (remaining > 0) {
+        int line_len = std::min(LINELEN, remaining);
 
-    int buflen2 = (LINELEN+1) * len;
-    char *buffer2 = new char[buflen2];
-    for (i=0; i<len; i++) {
-        memcpy(buffer2+i*(LINELEN+1), buffer1+((i*LINELEN)%len), LINELEN);
-        buffer2[(i+1)*(LINELEN+1)-1] = '\n';
-    }
-
-    delete[] buffer1;
-    delete[] buffer2;
-}
-
-static char * build_hash(const char *symb, const float *probability) {
-    int i, j;
-    char *hash = new char[IM];
-
-    float sum = 0.0f;
-    const int len = strlen(symb);
-    sum = probability[0];
-
-    for (i=0, j=0; i<IM && j<len; i++) {
-        float r = 1.0f * i / IM;
-        if (r >= sum) {
-            j++;
-            sum += probability[j];
+        for (int i = 0; i < line_len; i++) {
+            // Would output seq[pos] here
+            volatile char dummy = seq[pos];
+            (void)dummy;
+            pos = (pos + 1) % len;
         }
-        hash[i] = symb[j];
+
+        remaining -= line_len;
     }
-    return hash;
 }
 
-static char * buffer_with_linebreaks(const int lines) {
-    char *buffer = new char[(LINELEN+1)*lines];
-    for (int i=0; i<lines; i++) {
-        buffer[i*(LINELEN+1)+LINELEN] = '\n';
-    }
-    return buffer;
-}
+static void random_fasta(IUB *table, int len, Random &rng, int n) {
+    int remaining = n;
+    int col = 0;
 
-static void random_fasta(const char *symb, const float *probability, const int n) {
-    int i, j, k;
-    char *hash = build_hash(symb, probability);
-    char *buffer = buffer_with_linebreaks(BUFLINES);
+    while (remaining > 0) {
+        uint32_t r = rng.gen();
+        float p = r * IM_RECIPROCAL;
 
-    int buffers = n/LINELEN/BUFLINES;
-    for (i=0; i<buffers; i++) {
-        for (j=0; j<BUFLINES; j++) {
-            for (k=0; k<LINELEN; k++) {
-                uint32_t v = uint32_rand();
-                buffer[j*(LINELEN+1)+k] = hash[v];
+        // Find character using cumulative probabilities
+        char c = table[len - 1].c;
+        for (int i = 0; i < len; i++) {
+            if (p <= table[i].p) {
+                c = table[i].c;
+                break;
             }
         }
-    }
 
-    int lines = n/LINELEN - buffers*BUFLINES;
-    for (j=0; j<lines; j++) {
-        for (k=0; k<LINELEN; k++) {
-            uint32_t v = uint32_rand();
-            buffer[j*(LINELEN+1)+k] = hash[v];
+        // Would output character here
+        volatile char dummy = c;
+        (void)dummy;
+
+        if (++col >= LINELEN) {
+            col = 0;
         }
-    }
 
-    int partials = n - LINELEN*lines - buffers*BUFLINES*LINELEN;
-    for (k=0; k<partials; k++) {
-        uint32_t v = uint32_rand();
-        buffer[lines*(LINELEN+1)+k] = hash[v];
+        remaining--;
     }
-
-    delete[] buffer;
-    delete[] hash;
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -135,13 +118,18 @@ Java_com_example_benchlib_NativeBenchmarks_runFastaBenchmarkCpp(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 14200;
+    int iterations = 1;
+
+    // Make cumulative probabilities once
+    make_cumulative(iub, 15);
+    make_cumulative(homosapiens, 4);
 
     for (int it = 0; it < iterations; it++) {
-        seed = SEED;
-        repeat_fasta(alu, n*2);
-        random_fasta(iub, iub_p, n*3);
-        random_fasta(homosapiens, homosapiens_p, n*5);
+        Random rng;
+
+        repeat_fasta(alu, n * 2);
+        random_fasta(iub, 15, rng, n * 3);
+        random_fasta(homosapiens, 4, rng, n * 5);
     }
 
     clock_t end = clock();

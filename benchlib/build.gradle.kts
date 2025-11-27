@@ -11,9 +11,10 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
         consumerProguardFiles("consumer-rules.pro")
 
-        // ✅ Enable native (C/C++) builds
+        // Native (C/C++) build config
         externalNativeBuild {
             cmake {
                 cppFlags += "-std=c++17"
@@ -31,19 +32,17 @@ android {
         }
     }
 
-    // ✅ Explicit folder structure (for Java, Kotlin, assets, and C++)
+    // Source structure
     sourceSets {
         named("main") {
             java.srcDirs("src/main/java", "src/main/kotlin")
             assets.srcDirs("src/main/assets")
             res.srcDirs("src/main/res")
             manifest.srcFile("src/main/AndroidManifest.xml")
-            jniLibs.srcDirs("src/main/jniLibs")
-            jni.srcDirs("src/main/cpp")
         }
     }
 
-    // ✅ Include your native CMake build
+    // Native build
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
@@ -51,7 +50,7 @@ android {
         }
     }
 
-    // ✅ Merge assets with app (so app can read JS files from benchlib)
+    // Packaging
     packaging {
         resources {
             excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
@@ -73,18 +72,12 @@ android {
 }
 
 dependencies {
-    // Core Android libraries
+    // Android basics
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.core.ktx)
 
-    // ✅ JavaScript engine for JS benchmarks
-    implementation("com.squareup.duktape:duktape-android:1.4.0")
-
-    // ✅ WebView (if you choose to execute JS benchmarks using a WebView context)
-    implementation("androidx.webkit:webkit:1.9.0")
-
-    // Testing dependencies
+    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

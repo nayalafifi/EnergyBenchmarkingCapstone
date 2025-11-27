@@ -2,61 +2,18 @@ package com.example.benchlib
 
 import android.os.Trace
 import android.util.Log
-import kotlin.concurrent.thread
 import java.util.concurrent.atomic.AtomicInteger
 
 object MandelbrotBenchmarkKotlin {
-    fun runBenchmark(): String {
-        Trace.beginSection("Mandelbrot Benchmark")
+    private lateinit var out: Array<ByteArray>
+    private lateinit var yCt: AtomicInteger
+    private lateinit var Crb: DoubleArray
+    private lateinit var Cib: DoubleArray
 
-        val startTime = System.currentTimeMillis()
-
-        try {
-            val N = 6000
-
-            for (iteration in 0 until 40) {
-                val out = Array(N) { ByteArray((N + 7) / 8) }
-                val yCt = AtomicInteger(0)
-
-                val Crb = DoubleArray(N + 7)
-                val Cib = DoubleArray(N + 7)
-                val invN = 2.0 / N
-                for (i in 0 until N) {
-                    Cib[i] = i * invN - 1.0
-                    Crb[i] = i * invN - 1.5
-                }
-
-                val poolSize = Runtime.getRuntime().availableProcessors() * 2
-                val pool = Array(poolSize) {
-                    thread {
-                        while (true) {
-                            val y = yCt.getAndIncrement()
-                            if (y >= out.size) break
-                            val line = ByteArray((N + 7) / 8)
-                            for (xb in line.indices) {
-                                line[xb] = getByte(xb * 8, y, Crb, Cib).toByte()
-                            }
-                            out[y] = line
-                        }
-                    }
-                }
-                pool.forEach { it.join() }
-            }
-
-            val duration = System.currentTimeMillis() - startTime
-            Log.d("BENCHMARK", "Mandelbrot Kotlin duration: ${duration}ms")
-
-            return "Mandelbrot benchmark completed: ${duration}ms"
-        } catch (e: InterruptedException) {
-            return "Benchmark interrupted."
-        } finally {
-            Trace.endSection()
-        }
-    }
-
-    private fun getByte(x: Int, y: Int, Crb: DoubleArray, Cib: DoubleArray): Int {
+    private fun getByte(x: Int, y: Int): Int {
         var res = 0
-        for (i in 0 until 8 step 2) {
+        var i = 0
+        while (i < 8) {
             var Zr1 = Crb[x + i]
             var Zi1 = Cib[y]
 
@@ -77,16 +34,72 @@ object MandelbrotBenchmarkKotlin {
                 Zi2 = nZi2
 
                 if (Zr1 * Zr1 + Zi1 * Zi1 > 4) {
-                    b = b or 0x2
-                    if (b == 0x3) break
+                    b = b or 2
+                    if (b == 3) break
                 }
                 if (Zr2 * Zr2 + Zi2 * Zi2 > 4) {
-                    b = b or 0x1
-                    if (b == 0x3) break
+                    b = b or 1
+                    if (b == 3) break
                 }
             } while (--j > 0)
             res = (res shl 2) + b
+            i += 2
         }
         return res.inv()
+    }
+
+    private fun putLine(y: Int, line: ByteArray) {
+        for (xb in line.indices)
+            line[xb] = getByte(xb * 8, y).toByte()
+    }
+
+    @JvmStatic
+    fun runBenchmark(): String {
+        Trace.beginSection("Mandelbrot Benchmark")
+
+        val startTime = System.currentTimeMillis()
+
+        try {
+            val N = 6000
+            val iterations = 1
+
+            for (it in 0 until iterations) {
+                // Initialize arrays - matches reference
+                Crb = DoubleArray(N + 7)
+                Cib = DoubleArray(N + 7)
+                val invN = 2.0 / N
+                for (i in 0 until N) {
+                    Cib[i] = i * invN - 1.0
+                    Crb[i] = i * invN - 1.5
+                }
+                yCt = AtomicInteger()
+                out = Array(N) { ByteArray((N + 7) / 8) }
+
+                // Create thread pool - matches reference
+                val nThreads = 2 * Runtime.getRuntime().availableProcessors()
+                val pool = Array(nThreads) {
+                    object : Thread() {
+                        override fun run() {
+                            var y: Int
+                            while (yCt.getAndIncrement().also { y = it } < out.size)
+                                putLine(y, out[y])
+                        }
+                    }
+                }
+                for (t in pool) t.start()
+                for (t in pool) t.join()
+            }
+
+            val duration = System.currentTimeMillis() - startTime
+            val result = "Mandelbrot Kotlin completed: ${duration}ms ($iterations iterations)"
+            Log.d("BENCHMARK", result)
+
+            return result
+        } catch (e: InterruptedException) {
+            Log.e("BENCHMARK", "Benchmark interrupted", e)
+            return "Benchmark interrupted."
+        } finally {
+            Trace.endSection()
+        }
     }
 }

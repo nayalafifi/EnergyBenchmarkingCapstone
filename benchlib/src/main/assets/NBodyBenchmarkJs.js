@@ -76,7 +76,7 @@ function offsetMomentum(bodies) {
 
 function runNBodyBenchmark(n) {
     var startTime = Date.now();
-    var iterations = 143;
+    var iterations = 1;
 
     var bodies = [
         new Body(0, 0, 0, 0, 0, 0, SOLAR_MASS),

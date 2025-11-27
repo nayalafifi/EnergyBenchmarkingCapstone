@@ -2,137 +2,219 @@ package com.example.benchlib
 
 import android.os.Trace
 import android.util.Log
+import kotlin.math.sqrt
 
 object NBodyBenchmarkKotlin {
-
+    @JvmStatic
     fun runBenchmark(): String {
         Trace.beginSection("NBody Benchmark")
 
         val startTime = System.currentTimeMillis()
 
-        return try {
-            val n = 500_000
+        try {
+            val n = 500000
+            val iterations = 1
 
-            // Run 143 iterations to match Java
-            for (iteration in 0 until 143) {
+            for (iteration in 0..<iterations) {
                 val bodies = NBodySystem()
-                for (i in 0 until n) bodies.advance(0.01)
+                val initialEnergy = bodies.energy()
+
+                for (i in 0..<n) bodies.advance(0.01)
+
+                val finalEnergy = bodies.energy()
+
+                // Optionally log energies (commented out for performance)
+                // Log.d("BENCHMARK", String.format("Iteration %d: %.9f -> %.9f",
+                //     iteration, initialEnergy, finalEnergy));
             }
 
             val duration = System.currentTimeMillis() - startTime
-            Log.d("BENCHMARK", "NBody Kotlin duration: ${duration}ms")
+            val result = "NBody completed: " + duration + "ms (" + iterations + " iterations)"
+            Log.d("BENCHMARK", result)
 
-            "NBody benchmark completed: ${duration}ms"
-        } catch (e: Exception) {
-            "NBody Benchmark failed: ${e.message}"
+            return result
         } finally {
             Trace.endSection()
         }
     }
+}
 
-    class NBodySystem {
-        companion object {
-            private const val PI = 3.141592653589793
-            private const val SOLAR_MASS = 4 * PI * PI
-            private const val DAYS_PER_YEAR = 365.24
-            private const val BODY_SIZE = 8
-            private const val BODY_COUNT = 5
-
-            private const val x = 0
-            private const val y = 1
-            private const val z = 2
-            private const val vx = 3
-            private const val vy = 4
-            private const val vz = 5
-            private const val mass = 6
-        }
-
-        private val bodies: DoubleArray = doubleArrayOf(
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, SOLAR_MASS, 0.0,
-            4.84143144246472090e+00, -1.16032004402742839e+00, -1.03622044471123109e-01,
-            1.66007664274403694e-03 * DAYS_PER_YEAR, 7.69901118419740425e-03 * DAYS_PER_YEAR,
-            -6.90460016972063023e-05 * DAYS_PER_YEAR, 9.54791938424326609e-04 * SOLAR_MASS, 0.0,
-            8.34336671824457987e+00, 4.12479856412430479e+00, -4.03523417114321381e-01,
-            -2.76742510726862411e-03 * DAYS_PER_YEAR, 4.99852801234917238e-03 * DAYS_PER_YEAR,
-            2.30417297573763929e-05 * DAYS_PER_YEAR, 2.85885980666130812e-04 * SOLAR_MASS, 0.0,
-            1.28943695621391310e+01, -1.51111514016986312e+01, -2.23307578892655734e-01,
-            2.96460137564761618e-03 * DAYS_PER_YEAR, 2.37847173959480950e-03 * DAYS_PER_YEAR,
-            -2.96589568540237556e-05 * DAYS_PER_YEAR, 4.36624404335156298e-05 * SOLAR_MASS, 0.0,
-            1.53796971148509165e+01, -2.59193146099879641e+01, 1.79258772950371181e-01,
-            2.68067772490389322e-03 * DAYS_PER_YEAR, 1.62824170038242295e-03 * DAYS_PER_YEAR,
-            -9.51592254519715870e-05 * DAYS_PER_YEAR, 5.15138902046611451e-05 * SOLAR_MASS, 0.0
+internal class NBodySystem {
+    private val bodies =
+        arrayOf(
+            Body.sun(),
+            Body.jupiter(),
+            Body.saturn(),
+            Body.uranus(),
+            Body.neptune()
         )
 
-        init {
-            var px = 0.0
-            var py = 0.0
-            var pz = 0.0
-            for (i in 0 until BODY_COUNT) {
-                val offset = i * BODY_SIZE
-                val m = bodies[offset + mass]
-                px += bodies[offset + vx] * m
-                py += bodies[offset + vy] * m
-                pz += bodies[offset + vz] * m
-            }
-            bodies[vx] = -px / SOLAR_MASS
-            bodies[vy] = -py / SOLAR_MASS
-            bodies[vz] = -pz / SOLAR_MASS
+    init {
+        var px = 0.0
+        var py = 0.0
+        var pz = 0.0
+        for (i in 0..<LENGTH) {
+            px += bodies[i].vx * bodies[i].mass
+            py += bodies[i].vy * bodies[i].mass
+            pz += bodies[i].vz * bodies[i].mass
         }
+        bodies[0].offsetMomentum(px, py, pz)
+    }
 
-        fun advance(dt: Double) {
-            for (i in 0 until BODY_COUNT) {
-                val io = i * BODY_SIZE
-                for (j in i + 1 until BODY_COUNT) {
-                    val jo = j * BODY_SIZE
-                    val dx = bodies[io + x] - bodies[jo + x]
-                    val dy = bodies[io + y] - bodies[jo + y]
-                    val dz = bodies[io + z] - bodies[jo + z]
+    fun advance(dt: Double) {
+        val b = bodies
+        for (i in 0..<LENGTH - 1) {
+            val iBody = b[i]
+            val iMass = iBody.mass
+            val ix = iBody.x
+            val iy = iBody.y
+            val iz = iBody.z
 
-                    val d2 = dx * dx + dy * dy + dz * dz
-                    val dist = Math.sqrt(d2)
-                    val mag = dt / (d2 * dist)
+            for (j in i + 1..<LENGTH) {
+                val jBody = b[j]
+                val dx = ix - jBody.x
+                val dy = iy - jBody.y
+                val dz = iz - jBody.z
 
-                    val m1 = bodies[io + mass]
-                    val m2 = bodies[jo + mass]
+                val dSquared = dx * dx + dy * dy + dz * dz
+                val distance = sqrt(dSquared)
+                val mag = dt / (dSquared * distance)
 
-                    bodies[io + vx] -= dx * m2 * mag
-                    bodies[io + vy] -= dy * m2 * mag
-                    bodies[io + vz] -= dz * m2 * mag
+                val jMass = jBody.mass
 
-                    bodies[jo + vx] += dx * m1 * mag
-                    bodies[jo + vy] += dy * m1 * mag
-                    bodies[jo + vz] += dz * m1 * mag
-                }
-            }
+                iBody.vx -= dx * jMass * mag
+                iBody.vy -= dy * jMass * mag
+                iBody.vz -= dz * jMass * mag
 
-            for (i in 0 until BODY_COUNT) {
-                val o = i * BODY_SIZE
-                bodies[o + x] += dt * bodies[o + vx]
-                bodies[o + y] += dt * bodies[o + vy]
-                bodies[o + z] += dt * bodies[o + vz]
+                jBody.vx += dx * iMass * mag
+                jBody.vy += dy * iMass * mag
+                jBody.vz += dz * iMass * mag
             }
         }
 
-        fun energy(): Double {
-            var e = 0.0
-            for (i in 0 until BODY_COUNT) {
-                val io = i * BODY_SIZE
-                val velX = bodies[io + vx]
-                val velY = bodies[io + vy]
-                val velZ = bodies[io + vz]
-                val m = bodies[io + mass]
-                e += 0.5 * m * (velX * velX + velY * velY + velZ * velZ)
+        for (i in 0..<LENGTH) {
+            val body = b[i]
+            body.x += dt * body.vx
+            body.y += dt * body.vy
+            body.z += dt * body.vz
+        }
+    }
 
-                for (j in i + 1 until BODY_COUNT) {
-                    val jo = j * BODY_SIZE
-                    val dx = bodies[io + x] - bodies[jo + x]
-                    val dy = bodies[io + y] - bodies[jo + y]
-                    val dz = bodies[io + z] - bodies[jo + z]
-                    val dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
-                    e -= (m * bodies[jo + mass]) / dist
-                }
+    fun energy(): Double {
+        var dx: Double
+        var dy: Double
+        var dz: Double
+        var distance: Double
+        var e = 0.0
+
+        for (i in bodies.indices) {
+            val iBody = bodies[i]
+            e += 0.5 * iBody.mass *
+                    (iBody.vx * iBody.vx + iBody.vy * iBody.vy + iBody.vz * iBody.vz)
+
+            for (j in i + 1..<bodies.size) {
+                val jBody = bodies[j]
+                dx = iBody.x - jBody.x
+                dy = iBody.y - jBody.y
+                dz = iBody.z - jBody.z
+
+                distance = sqrt(dx * dx + dy * dy + dz * dz)
+                e -= (iBody.mass * jBody.mass) / distance
             }
-            return e
+        }
+        return e
+    }
+
+    companion object {
+        private const val LENGTH = 5
+    }
+}
+
+internal class Body {
+    @JvmField
+    var x: Double = 0.0
+    @JvmField
+    var y: Double = 0.0
+    @JvmField
+    var z: Double = 0.0
+    @JvmField
+    var vx: Double = 0.0
+    @JvmField
+    var vy: Double = 0.0
+    @JvmField
+    var vz: Double = 0.0
+    @JvmField
+    var mass: Double = 0.0
+
+    fun offsetMomentum(px: Double, py: Double, pz: Double): Body {
+        vx = -px / SOLAR_MASS
+        vy = -py / SOLAR_MASS
+        vz = -pz / SOLAR_MASS
+        return this
+    }
+
+    companion object {
+        const val PI: Double = 3.141592653589793
+        const val SOLAR_MASS: Double = 4 * PI * PI
+        const val DAYS_PER_YEAR: Double = 365.24
+
+        @JvmStatic
+        fun jupiter(): Body {
+            val p = Body()
+            p.x = 4.84143144246472090e+00
+            p.y = -1.16032004402742839e+00
+            p.z = -1.03622044471123109e-01
+            p.vx = 1.66007664274403694e-03 * DAYS_PER_YEAR
+            p.vy = 7.69901118419740425e-03 * DAYS_PER_YEAR
+            p.vz = -6.90460016972063023e-05 * DAYS_PER_YEAR
+            p.mass = 9.54791938424326609e-04 * SOLAR_MASS
+            return p
+        }
+
+        @JvmStatic
+        fun saturn(): Body {
+            val p = Body()
+            p.x = 8.34336671824457987e+00
+            p.y = 4.12479856412430479e+00
+            p.z = -4.03523417114321381e-01
+            p.vx = -2.76742510726862411e-03 * DAYS_PER_YEAR
+            p.vy = 4.99852801234917238e-03 * DAYS_PER_YEAR
+            p.vz = 2.30417297573763929e-05 * DAYS_PER_YEAR
+            p.mass = 2.85885980666130812e-04 * SOLAR_MASS
+            return p
+        }
+
+        @JvmStatic
+        fun uranus(): Body {
+            val p = Body()
+            p.x = 1.28943695621391310e+01
+            p.y = -1.51111514016986312e+01
+            p.z = -2.23307578892655734e-01
+            p.vx = 2.96460137564761618e-03 * DAYS_PER_YEAR
+            p.vy = 2.37847173959480950e-03 * DAYS_PER_YEAR
+            p.vz = -2.96589568540237556e-05 * DAYS_PER_YEAR
+            p.mass = 4.36624404335156298e-05 * SOLAR_MASS
+            return p
+        }
+
+        @JvmStatic
+        fun neptune(): Body {
+            val p = Body()
+            p.x = 1.53796971148509165e+01
+            p.y = -2.59193146099879641e+01
+            p.z = 1.79258772950371181e-01
+            p.vx = 2.68067772490389322e-03 * DAYS_PER_YEAR
+            p.vy = 1.62824170038242295e-03 * DAYS_PER_YEAR
+            p.vz = -9.51592254519715870e-05 * DAYS_PER_YEAR
+            p.mass = 5.15138902046611451e-05 * SOLAR_MASS
+            return p
+        }
+
+        @JvmStatic
+        fun sun(): Body {
+            val p = Body()
+            p.mass = SOLAR_MASS
+            return p
         }
     }
 }

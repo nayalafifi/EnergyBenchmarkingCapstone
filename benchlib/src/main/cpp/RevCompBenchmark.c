@@ -5,77 +5,34 @@
 #include <time.h>
 #include <android/log.h>
 
-// Complement lookup table as per CLBG
+// Complement lookup table - matches TCLBG reference exactly
 #define COMPLEMENT_LOOKUP \
   "                                                                "\
   /*ABCDEFGHIJKLMNOPQRSTUVWXYZ      abcdefghijklmnopqrstuvwxyz    */\
   " TVGH  CD  M KN   YSAABW R       TVGH  CD  M KN   YSAABW R"
 
-static void reverse_complement_sequence(char *seq, int len) {
-    // Skip the header line (starts with '>')
-    char *sequence_start = strchr(seq, '\n');
-    if (!sequence_start) return;
-    sequence_start++; // Move past the newline
+typedef intptr_t intnative_t;
 
-    // Find the end of the sequence (before next header or end of string)
-    char *sequence_end = strchr(sequence_start, '>');
-    if (sequence_end) {
-        sequence_end--; // Back up before the '>'
-    } else {
-        sequence_end = seq + len - 1;
-    }
+static void process_Sequence(char *sequence, const intnative_t sequence_Size) {
+    // Set up pointers to front and back
+    char *front_Pos = sequence, *back_Pos = sequence + sequence_Size - 1;
 
-    // Skip any trailing newlines
-    while (sequence_end > sequence_start && *sequence_end == '\n') {
-        sequence_end--;
-    }
+    // Advance front_Pos to first character on next line (after header)
+    while (*front_Pos++ != '\n');
 
-    // Set up pointers for reversal
-    char *front = sequence_start;
-    char *back = sequence_end;
-
-    // Skip leading newlines
-    while (front <= back && *front == '\n') front++;
+    // Skip leading/trailing newlines
+    while (*front_Pos == '\n' && front_Pos <= back_Pos) front_Pos++;
+    while (*back_Pos == '\n' && front_Pos <= back_Pos) back_Pos--;
 
     // Reverse and complement the sequence
-    while (front <= back) {
-        // Skip newlines
-        while (front <= back && *front == '\n') front++;
-        while (front <= back && *back == '\n') back--;
+    while (front_Pos <= back_Pos) {
+        const char temp = COMPLEMENT_LOOKUP[(unsigned char)*front_Pos];
+        *front_Pos = COMPLEMENT_LOOKUP[(unsigned char)*back_Pos];
+        *back_Pos = temp;
 
-        if (front <= back) {
-            const char temp = COMPLEMENT_LOOKUP[(unsigned char)*front];
-            *front = COMPLEMENT_LOOKUP[(unsigned char)*back];
-            *back = temp;
-            front++;
-            back--;
-        }
-    }
-}
-
-// Simplified FASTA processing for benchmarking
-static void process_fasta(char *data, int len) {
-    char *current = data;
-    char *end = data + len;
-
-    while (current < end) {
-        // Find start of sequence (header line starting with '>')
-        char *header = strchr(current, '>');
-        if (!header) break;
-
-        // Find next header or end
-        char *next_header = strchr(header + 1, '>');
-        int seq_len;
-        if (next_header) {
-            seq_len = next_header - header;
-        } else {
-            seq_len = end - header;
-        }
-
-        // Process this sequence
-        reverse_complement_sequence(header, seq_len);
-
-        current = header + seq_len;
+        // Skip over line feeds
+        while (*++front_Pos == '\n');
+        while (*--back_Pos == '\n');
     }
 }
 
@@ -86,18 +43,18 @@ Java_com_example_benchlib_NativeBenchmarks_runRevCompBenchmarkC(
         jstring fastaInput) {
 
     clock_t start = clock();
-    int iterations = 1000;
+    int iterations = 1;  // Match Java iterations
 
     const char *input = (*env)->GetStringUTFChars(env, fastaInput, NULL);
     int len = strlen(input);
 
-    // Create test FASTA format data if input doesn't look like FASTA
+    // Create test FASTA format data
     char *test_data;
     int test_len;
 
     if (input[0] != '>') {
-        // Create simple FASTA format from input
-        test_len = len + 20;
+        // Create FASTA format from input
+        test_len = len + 100;  // Extra space for header
         test_data = (char *)malloc(test_len);
         snprintf(test_data, test_len, ">TEST\n%s\n", input);
         test_len = strlen(test_data);
@@ -108,18 +65,19 @@ Java_com_example_benchlib_NativeBenchmarks_runRevCompBenchmarkC(
         strcpy(test_data, input);
     }
 
+    // Allocate working buffer
+    char *work_buffer = (char *)malloc(test_len + 1);
+
     // Benchmark the FASTA processing
     for (int iter = 0; iter < iterations; iter++) {
-        // Reset the data for each iteration
-        if (input[0] != '>') {
-            snprintf(test_data, test_len, ">TEST\n%s\n", input);
-        } else {
-            strcpy(test_data, input);
-        }
+        // Reset data for each iteration
+        memcpy(work_buffer, test_data, test_len + 1);
 
-        process_fasta(test_data, test_len);
+        // Process the sequence
+        process_Sequence(work_buffer, test_len);
     }
 
+    free(work_buffer);
     free(test_data);
     (*env)->ReleaseStringUTFChars(env, fastaInput, input);
 

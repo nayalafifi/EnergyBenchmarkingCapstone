@@ -7,26 +7,35 @@ static void mandelbrot(int w, int h, std::vector<unsigned char>& output) {
     int bit_num = 0;
     unsigned char byte_acc = 0;
     const int iter = 50;
-    const double limit = 2.0;
+    const double limit = 4.0;
     double Zr, Zi, Cr, Ci, Tr, Ti;
 
     int index = 0;
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            Zr = Zi = Tr = Ti = 0.0;
+            Zr = Zi = 0.0;
             Cr = (2.0 * x / w - 1.5);
             Ci = (2.0 * y / h - 1.0);
 
-            int i = 0;
-            for (i = 0; i < iter && (Tr + Ti <= limit * limit); i++) {
-                Zi = 2.0 * Zr * Zi + Ci;
-                Zr = Tr - Ti + Cr;
+            bool escaped = false;
+            for (int batch = 0; batch < 10; batch++) {
+                for (int k = 0; k < 5; k++) {
+                    Tr = Zr * Zr;
+                    Ti = Zi * Zi;
+                    Zi = 2.0 * Zr * Zi + Ci;
+                    Zr = Tr - Ti + Cr;
+                }
+                // Check escape condition after every 5 iterations
                 Tr = Zr * Zr;
                 Ti = Zi * Zi;
+                if (Tr + Ti > limit) {
+                    escaped = true;
+                    break;
+                }
             }
 
             byte_acc <<= 1;
-            if (Tr + Ti <= limit * limit) byte_acc |= 0x01;
+            if (!escaped) byte_acc |= 0x01;
 
             bit_num++;
 
@@ -51,7 +60,7 @@ Java_com_example_benchlib_NativeBenchmarks_runMandelbrotBenchmarkCpp(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 100;
+    int iterations = 1;
 
     int size = (n * n / 8) + 1;
     std::vector<unsigned char> output(size);

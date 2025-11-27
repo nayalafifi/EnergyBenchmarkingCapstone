@@ -3,40 +3,21 @@ package com.example.benchlib
 import android.os.Trace
 import android.util.Log
 import kotlin.math.min
-import kotlin.random.Random
 
 object FastaBenchmarkKotlin {
-
-    private val IUB_CODES = charArrayOf(
-        'a', 'c', 'g', 't',
-        'B', 'D', 'H', 'K',
-        'M', 'N', 'R', 'S',
-        'V', 'W', 'Y'
-    )
-
-    private val IUB_PROBS = doubleArrayOf(
-        0.27, 0.12, 0.12, 0.27,
-        0.02, 0.02, 0.02, 0.02,
-        0.02, 0.02, 0.02, 0.02,
-        0.02, 0.02, 0.02
-    )
-
-    private val HOMO_SAPIENS_CODES = charArrayOf('a', 'c', 'g', 't')
-
-    private val HOMO_SAPIENS_PROBS = doubleArrayOf(
-        0.3029549426680,
-        0.1979883004921,
-        0.1975473066391,
-        0.3015094502008
-    )
+    private const val IM = 139968
+    private const val IA = 3877
+    private const val IC = 29573
+    private const val ONE_OVER_IM = 1f / IM
+    private var last = 42
 
     fun runBenchmark(): String {
         Trace.beginSection("Fasta Benchmark")
 
         val startTime = System.currentTimeMillis()
 
-        return try {
-            val n = 10000  // Increased from 1000 to 10000
+        try {
+            val n = 10000
             val ALU =
                 "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG" +
                         "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA" +
@@ -46,57 +27,75 @@ object FastaBenchmarkKotlin {
                         "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" +
                         "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
 
-            for (iteration in 0 until 2900) {
+            // Pre-compute cumulative probabilities as floats (like reference)
+            val iubProbs = computeCumulativeProbs(IUB_PROBS)
+            val sapienProbs = computeCumulativeProbs(HOMO_SAPIENS_PROBS)
+
+            for (iteration in 0..1) {
                 val temp = StringBuilder()
                 temp.append(">ONE Homo sapiens alu\n")
                 generateRepeat(ALU, n * 2, temp)
 
                 temp.append(">TWO IUB ambiguity codes\n")
-                generateRandom(n * 3, temp, IUB_CODES, IUB_PROBS)
+                generateRandom(n * 3, temp, IUB_CODES, iubProbs)
 
                 temp.append(">THREE Homo sapiens frequency\n")
-                generateRandom(n * 5, temp, HOMO_SAPIENS_CODES, HOMO_SAPIENS_PROBS)
-                // temp gets garbage collected
+                generateRandom(n * 5, temp, HOMO_SAPIENS_CODES, sapienProbs)
             }
 
             val duration = System.currentTimeMillis() - startTime
-            Log.d("BENCHMARK", "Fasta Kotlin duration: ${duration}ms")
+            Log.d("BENCHMARK", "Fasta Java duration: " + duration + "ms")
 
-            "Fasta benchmark completed: ${duration}ms"
+            return "Fasta benchmark completed: " + duration + "ms"
         } finally {
             Trace.endSection()
         }
     }
 
+    private fun computeCumulativeProbs(probs: DoubleArray): FloatArray {
+        val cumProbs = FloatArray(probs.size)
+        var cp = 0.0
+        for (i in probs.indices) {
+            cp += probs[i]
+            cumProbs[i] = cp.toFloat()
+        }
+        cumProbs[cumProbs.size - 1] = 2f // Sentinel value like reference
+        return cumProbs
+    }
+
     private fun generateRepeat(seed: String, n: Int, out: StringBuilder) {
+        var n = n
         val length = seed.length
         var pos = 0
-        var remaining = n
-        while (remaining > 0) {
-            val lineLen = min(60, remaining)
+        while (n > 0) {
+            val lineLen = min(60.0, n.toDouble()).toInt()
             if (pos + lineLen < length) {
-                out.append(seed.substring(pos, pos + lineLen))
+                out.append(seed, pos, pos + lineLen)
                 pos += lineLen
             } else {
                 out.append(seed.substring(pos))
-                out.append(seed.substring(0, lineLen - (length - pos)))
+                out.append(seed, 0, lineLen - (length - pos))
                 pos = (pos + lineLen) % length
             }
             out.append('\n')
-            remaining -= lineLen
+            n -= lineLen
         }
     }
 
-    private fun generateRandom(n: Int, out: StringBuilder, codes: CharArray, probs: DoubleArray) {
-        val cumProbs = DoubleArray(probs.size)
-        cumProbs[0] = probs[0]
-        for (i in 1 until probs.size) {
-            cumProbs[i] = cumProbs[i - 1] + probs[i]
-        }
-
+    private fun generateRandom(n: Int, out: StringBuilder, codes: CharArray, cumProbs: FloatArray) {
         var count = 0
-        repeat(n) {
-            out.append(selectRandom(codes, cumProbs))
+        for (i in 0..<n) {
+            // Use deterministic LCG like reference implementation
+            last = (last * IA + IC) % IM
+            val r = last * ONE_OVER_IM
+
+            // Find character using linear search (matches reference)
+            var m = 0
+            while (cumProbs[m] < r) {
+                m++
+            }
+            out.append(codes[m])
+
             count++
             if (count == 60) {
                 out.append('\n')
@@ -106,11 +105,32 @@ object FastaBenchmarkKotlin {
         if (count > 0) out.append('\n')
     }
 
-    private fun selectRandom(codes: CharArray, cumProbs: DoubleArray): Char {
-        val r = Random.nextDouble()
-        for (i in cumProbs.indices) {
-            if (r < cumProbs[i]) return codes[i]
-        }
-        return codes.last()
-    }
+    // IUB codes - matches reference byte[] iubChars
+    private val IUB_CODES = charArrayOf(
+        'a', 'c', 'g', 't',
+        'B', 'D', 'H', 'K',
+        'M', 'N', 'R', 'S',
+        'V', 'W', 'Y'
+    )
+
+    // IUB probabilities - matches reference double[] iubProbs
+    private val IUB_PROBS = doubleArrayOf(
+        0.27, 0.12, 0.12, 0.27,
+        0.02, 0.02, 0.02, 0.02,
+        0.02, 0.02, 0.02, 0.02,
+        0.02, 0.02, 0.02
+    )
+
+    // Homo sapiens codes - matches reference byte[] sapienChars
+    private val HOMO_SAPIENS_CODES = charArrayOf(
+        'a', 'c', 'g', 't'
+    )
+
+    // Homo sapiens probabilities - matches reference double[] sapienProbs
+    private val HOMO_SAPIENS_PROBS = doubleArrayOf(
+        0.3029549426680,
+        0.1979883004921,
+        0.1975473066391,
+        0.3015094502008
+    )
 }

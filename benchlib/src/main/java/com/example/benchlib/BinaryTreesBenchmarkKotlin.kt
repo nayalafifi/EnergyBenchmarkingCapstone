@@ -1,66 +1,80 @@
 package com.example.benchlib
 
+import android.annotation.SuppressLint
 import android.os.Trace
 import android.util.Log
 
 object BinaryTreesBenchmarkKotlin {
+    private const val MIN_DEPTH = 4
 
-    class TreeNode(val left: TreeNode?, val right: TreeNode?) {
-
-        companion object {
-            fun bottomUpTree(depth: Int): TreeNode {
-                return if (depth > 0)
-                    TreeNode(bottomUpTree(depth - 1), bottomUpTree(depth - 1))
-                else
-                    TreeNode(null, null)
-            }
+    private fun bottomUpTree(depth: Int): TreeNode {
+        if (0 < depth) {
+            return TreeNode(bottomUpTree(depth - 1), bottomUpTree(depth - 1))
         }
-
-        fun itemCheck(): Int {
-            return if (left == null) 1 else 1 + (left.itemCheck()) + (right?.itemCheck() ?: 0)
-        }
+        return TreeNode()
     }
 
+    @SuppressLint("UnclosedTrace")
     fun runBenchmark(): String {
         Trace.beginSection("BinaryTrees Benchmark")
 
         val startTime = System.currentTimeMillis()
-        val iterations = 35
+        val iterations = 10
 
         try {
-            val minDepth = 4
-            val maxDepth = 16
+            val n = 18
+            val maxDepth = if (n < (MIN_DEPTH + 2)) MIN_DEPTH + 2 else n
             val stretchDepth = maxDepth + 1
 
-            // Run 150 iterations to get ~30-60 seconds
-            for (iteration in 0 until iterations) {
-                run {
-                    val stretchTree = TreeNode.bottomUpTree(stretchDepth)
-                    stretchTree.itemCheck() // Just compute, don't store
-                }
+            for (iteration in 0..<iterations) {
+                // Stretch tree
+                val stretchCheck = bottomUpTree(stretchDepth).itemCheck()
 
-                val longLivedTree = TreeNode.bottomUpTree(maxDepth)
+                // Long-lived tree
+                val longLivedTree = bottomUpTree(maxDepth)
 
-                for (depth in minDepth..maxDepth step 2) {
-                    val iterationsInner = 1 shl (maxDepth - depth + minDepth)
+                // Create and check trees at different depths
+                // Note: Reference uses parallel execution here, but for Android
+                // we'll keep it sequential to avoid threading complexity
+                var d = MIN_DEPTH
+                while (d <= maxDepth) {
+                    val depth = d
                     var check = 0
-                    for (i in 0 until iterationsInner) {
-                        val tree = TreeNode.bottomUpTree(depth)
-                        check += tree.itemCheck()
+
+                    val iterationsInner = 1 shl (maxDepth - depth + MIN_DEPTH)
+                    for (i in 1..iterationsInner) {
+                        val treeNode1 = bottomUpTree(depth)
+                        check += treeNode1.itemCheck()
                     }
+                    d += 2
                 }
 
-                longLivedTree.itemCheck() // Just compute, don't store
+                // Check long-lived tree
+                val longLivedCheck = longLivedTree.itemCheck()
             }
 
             val duration = System.currentTimeMillis() - startTime
 
-            val result = "BinaryTrees Kotlin completed: ${duration}ms ($iterations iterations)"
+            val result =
+                "BinaryTrees Java completed: " + duration + "ms (" + iterations + " iterations)"
             Log.d("BENCHMARK", result)
 
             return result
         } finally {
             Trace.endSection()
+        }
+    }
+
+    private class TreeNode(
+        private val left: TreeNode? = null,
+        private val right: TreeNode? = null
+    ) {
+        fun itemCheck(): Int {
+            // if necessary deallocate here
+            if (null == left) {
+                return 1
+            }
+            return 1 + left.itemCheck() + right!!.itemCheck()
         }
     }
 }

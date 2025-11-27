@@ -4,11 +4,12 @@ import android.os.Trace;
 import android.util.Log;
 
 import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.concurrent.CyclicBarrier;
 
 public final class SpectralNormBenchmark {
 
-    private static final DecimalFormat formatter = new DecimalFormat("#.000000000");
-    private static final int NCPU = Runtime.getRuntime().availableProcessors();
+    private static final NumberFormat formatter = new DecimalFormat("#.000000000");
 
     public static String runBenchmark() {
         Trace.beginSection("SpectralNorm Benchmark");
@@ -16,78 +17,142 @@ public final class SpectralNormBenchmark {
         long startTime = System.currentTimeMillis();
 
         try {
-            final int n = 100;
+            int n = 100;
+            int iterations = 1;
 
-            for (int iteration = 0; iteration < 175; iteration++) {
-                final double[] u = new double[n];
-                final double[] v = new double[n];
-                for (int i = 0; i < n; i++) u[i] = 1.0;
-
-                for (int i = 0; i < 10; i++) {
-                    aTimesTransp(v, u, n);
-                    aTimesTransp(u, v, n);
-                }
+            for (int iteration = 0; iteration < iterations; iteration++) {
+                double result = spectralnormGame(n);
+                // Optionally log result (commented out for performance)
+                // Log.d("BENCHMARK", "Iteration " + iteration + ": " + formatter.format(result));
             }
 
             long duration = System.currentTimeMillis() - startTime;
-            Log.d("BENCHMARK", "SpectralNorm Java duration: " + duration + "ms");
+            String result = "SpectralNorm completed: " + duration + "ms (" + iterations + " iterations)";
+            Log.d("BENCHMARK", result);
 
-            return "SpectralNorm benchmark completed: " + duration + "ms";
+            return result;
         } catch (Exception e) {
-            return "SpectralNorm Benchmark failed: " + e.getMessage();
+            Log.e("BENCHMARK", "SpectralNorm failed", e);
+            return "SpectralNorm failed: " + e.getMessage();
         } finally {
             Trace.endSection();
         }
     }
 
-    private static void aTimesTransp(double[] v, double[] u, int n) throws InterruptedException {
-        final double[] x = new double[n];
-        final Thread[] t = new Thread[NCPU];
+    private static double spectralnormGame(int n) {
+        // create unit vector
+        double[] u = new double[n];
+        double[] v = new double[n];
+        double[] tmp = new double[n];
 
-        for (int i = 0; i < NCPU; i++) {
-            int start = i * n / NCPU;
-            int end = (i + 1) * n / NCPU;
-            t[i] = new Times(x, start, end, u, false, n);
-            t[i].start();
-        }
-        for (Thread thread : t) thread.join();
+        for (int i = 0; i < n; i++)
+            u[i] = 1.0;
 
-        for (int i = 0; i < NCPU; i++) {
-            int start = i * n / NCPU;
-            int end = (i + 1) * n / NCPU;
-            t[i] = new Times(v, start, end, x, true, n);
-            t[i].start();
-        }
-        for (Thread thread : t) thread.join();
-    }
+        // get available processor, then set up syn object
+        int nthread = Runtime.getRuntime().availableProcessors();
+        Approximate.barrier = new CyclicBarrier(nthread);
 
-    private static final class Times extends Thread {
-        private final double[] v, u;
-        private final int start, end, size;
-        private final boolean transpose;
+        int chunk = n / nthread;
+        Approximate[] ap = new Approximate[nthread];
 
-        Times(double[] v, int start, int end, double[] u, boolean transpose, int size) {
-            this.v = v;
-            this.start = start;
-            this.end = end;
-            this.u = u;
-            this.transpose = transpose;
-            this.size = size;
+        for (int i = 0; i < nthread; i++) {
+            int r1 = i * chunk;
+            int r2 = (i < (nthread - 1)) ? r1 + chunk : n;
+
+            ap[i] = new Approximate(u, v, tmp, r1, r2);
         }
 
-        @Override
-        public void run() {
-            for (int i = start; i < end; i++) {
-                double sum = 0.0;
-                for (int j = 0; j < size; j++) {
-                    sum += u[j] / a(transpose ? j : i, transpose ? i : j);
-                }
-                v[i] = sum;
+        double vBv = 0, vv = 0;
+        for (int i = 0; i < nthread; i++) {
+            try {
+                ap[i].join();
+
+                vBv += ap[i].m_vBv;
+                vv += ap[i].m_vv;
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
 
-        private int a(int i, int j) {
-            return (i + j) * (i + j + 1) / 2 + i + 1;
+        return Math.sqrt(vBv / vv);
+    }
+
+    private static class Approximate extends Thread {
+        private static CyclicBarrier barrier;
+
+        private double[] _u;
+        private double[] _v;
+        private double[] _tmp;
+
+        private int range_begin, range_end;
+        private double m_vBv = 0, m_vv = 0;
+
+        public Approximate(double[] u, double[] v, double[] tmp, int rbegin, int rend) {
+            super();
+
+            _u = u;
+            _v = v;
+            _tmp = tmp;
+
+            range_begin = rbegin;
+            range_end = rend;
+
+            start();
+        }
+
+        public void run() {
+            // 20 steps of the power method
+            for (int i = 0; i < 10; i++) {
+                MultiplyAtAv(_u, _tmp, _v);
+                MultiplyAtAv(_v, _tmp, _u);
+            }
+
+            for (int i = range_begin; i < range_end; i++) {
+                m_vBv += _u[i] * _v[i];
+                m_vv += _v[i] * _v[i];
+            }
+        }
+
+        /* return element i,j of infinite matrix A */
+        private final static double eval_A(int i, int j) {
+            int div = (((i + j) * (i + j + 1) >>> 1) + i + 1);
+            return 1.0 / div;
+        }
+
+        /* multiply vector v by matrix A, each thread evaluate its range only */
+        private final void MultiplyAv(final double[] v, double[] Av) {
+            for (int i = range_begin; i < range_end; i++) {
+                double sum = 0;
+                for (int j = 0; j < v.length; j++)
+                    sum += eval_A(i, j) * v[j];
+
+                Av[i] = sum;
+            }
+        }
+
+        /* multiply vector v by matrix A transposed */
+        private final void MultiplyAtv(final double[] v, double[] Atv) {
+            for (int i = range_begin; i < range_end; i++) {
+                double sum = 0;
+                for (int j = 0; j < v.length; j++)
+                    sum += eval_A(j, i) * v[j];
+
+                Atv[i] = sum;
+            }
+        }
+
+        /* multiply vector v by matrix A and then by matrix A transposed */
+        private final void MultiplyAtAv(final double[] v, double[] tmp, double[] AtAv) {
+            try {
+                MultiplyAv(v, tmp);
+                // all thread must syn at completion
+                barrier.await();
+                MultiplyAtv(tmp, AtAv);
+                // all thread must syn at completion
+                barrier.await();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 }

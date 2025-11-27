@@ -3,18 +3,17 @@ function mandelbrot(w, h) {
     var bit_num = 0;
     var byte_acc = 0;
     var iter = 50;
-    var limit = 2.0;
-    var Zr, Zi, Cr, Ci, Tr, Ti;
+    var limit = 4;  // FIXED: Use 4 directly, not 2.0
 
     var index = 0;
     for (var y = 0; y < h; y++) {
         for (var x = 0; x < w; x++) {
-            Zr = Zi = Tr = Ti = 0.0;
-            Cr = (2.0 * x / w - 1.5);
-            Ci = (2.0 * y / h - 1.0);
+            var Zr = 0, Zi = 0, Tr = 0, Ti = 0;
+            var Cr = (2.0 * x / w - 1.5);
+            var Ci = (2.0 * y / h - 1.0);
 
             var i = 0;
-            for (i = 0; i < iter && (Tr + Ti <= limit * limit); i++) {
+            for (i = 0; i < iter && Tr + Ti <= limit; i++) {  // FIXED: Compare directly to limit
                 Zi = 2.0 * Zr * Zi + Ci;
                 Zr = Tr - Ti + Cr;
                 Tr = Zr * Zr;
@@ -22,7 +21,7 @@ function mandelbrot(w, h) {
             }
 
             byte_acc <<= 1;
-            if (Tr + Ti <= limit * limit) byte_acc |= 0x01;
+            if (Tr + Ti <= limit) byte_acc |= 0x01;
 
             bit_num++;
 
@@ -43,7 +42,7 @@ function mandelbrot(w, h) {
 
 function runMandelbrotBenchmark(n) {
     var startTime = Date.now();
-    var iterations = 100;
+    var iterations = 1;
 
     for (var iter = 0; iter < iterations; iter++) {
         mandelbrot(n, n);

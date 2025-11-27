@@ -18,13 +18,13 @@ function bottomUpTree(depth) {
     return new TreeNode(null, null);
 }
 
-function runBinaryTreesBenchmark(minDepth,maxDepth) {
+function runBinaryTreesBenchmark(n) {
     var startTime = Date.now();
     var iterations = 1;
 
     for (var iter = 0; iter < iterations; iter++) {
-//        var minDepth = 4;
-//        var maxDepth = 16;
+        var minDepth = 4;
+        var maxDepth = Math.max(minDepth + 2, n);
         var stretchDepth = maxDepth + 1;
 
         var check = bottomUpTree(stretchDepth).itemCheck();

@@ -6,65 +6,12 @@ import android.util.Log;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class MandelbrotBenchmark {
+    static byte[][] out;
+    static AtomicInteger yCt;
+    static double[] Crb;
+    static double[] Cib;
 
-    public static String runBenchmark() {
-        Trace.beginSection("Mandelbrot Benchmark");
-
-        long startTime = System.currentTimeMillis();
-
-        try {
-            int N = 6000;
-            int iterations = 40;
-
-            // Start with 5 iterations as baseline test
-            for (int it = 0; it < iterations; it++) {
-                byte[][] out;
-                AtomicInteger yCt;
-                double[] Crb;
-                double[] Cib;
-
-                Crb = new double[N + 7];
-                Cib = new double[N + 7];
-                double invN = 2.0 / N;
-                for (int i = 0; i < N; i++) {
-                    Cib[i] = i * invN - 1.0;
-                    Crb[i] = i * invN - 1.5;
-                }
-                yCt = new AtomicInteger();
-                out = new byte[N][(N + 7) / 8];
-
-                Thread[] pool = new Thread[2 * Runtime.getRuntime().availableProcessors()];
-                for (int i = 0; i < pool.length; i++) {
-                    pool[i] = new Thread(() -> {
-                        int y;
-                        while ((y = yCt.getAndIncrement()) < out.length) {
-                            byte[] line = new byte[(N + 7) / 8];
-                            for (int xb = 0; xb < line.length; xb++) {
-                                line[xb] = (byte) getByte(xb * 8, y, Crb, Cib);
-                            }
-                            out[y] = line;
-                        }
-                    });
-                }
-                for (Thread t : pool) t.start();
-                for (Thread t : pool) t.join();
-            }
-
-            long duration = System.currentTimeMillis() - startTime;
-            Log.d("BENCHMARK", "Mandelbrot Java duration: " + duration + "ms");
-            Log.d("BENCHMARK", "Mandelbrot running with " + iterations + " iterations");
-
-
-            return "Mandelbrot benchmark completed: " + duration + "ms";
-
-        } catch (InterruptedException e) {
-            return "Benchmark interrupted.";
-        } finally {
-            Trace.endSection();
-        }
-    }
-
-    private static int getByte(int x, int y, double[] Crb, double[] Cib) {
+    static int getByte(int x, int y) {
         int res = 0;
         for (int i = 0; i < 8; i += 2) {
             double Zr1 = Crb[x + i];
@@ -97,6 +44,61 @@ public final class MandelbrotBenchmark {
             } while (--j > 0);
             res = (res << 2) + b;
         }
-        return res ^ -1;
+        return ~res;
+    }
+
+    static void putLine(int y, byte[] line) {
+        for (int xb = 0; xb < line.length; xb++)
+            line[xb] = (byte) getByte(xb * 8, y);
+    }
+
+    public static String runBenchmark() {
+        Trace.beginSection("Mandelbrot Benchmark");
+
+        long startTime = System.currentTimeMillis();
+
+        try {
+            int N = 6000;
+            int iterations = 1;
+
+            for (int it = 0; it < iterations; it++) {
+                // Initialize static arrays - matches reference
+                Crb = new double[N + 7];
+                Cib = new double[N + 7];
+                double invN = 2.0 / N;
+                for (int i = 0; i < N; i++) {
+                    Cib[i] = i * invN - 1.0;
+                    Crb[i] = i * invN - 1.5;
+                }
+                yCt = new AtomicInteger();
+                out = new byte[N][(N + 7) / 8];
+
+                // Create thread pool - matches reference
+                Thread[] pool = new Thread[2 * Runtime.getRuntime().availableProcessors()];
+                for (int i = 0; i < pool.length; i++) {
+                    pool[i] = new Thread() {
+                        public void run() {
+                            int y;
+                            while ((y = yCt.getAndIncrement()) < out.length)
+                                putLine(y, out[y]);
+                        }
+                    };
+                }
+                for (Thread t : pool) t.start();
+                for (Thread t : pool) t.join();
+            }
+
+            long duration = System.currentTimeMillis() - startTime;
+            String result = "Mandelbrot completed: " + duration + "ms (" + iterations + " iterations)";
+            Log.d("BENCHMARK", result);
+
+            return result;
+
+        } catch (InterruptedException e) {
+            Log.e("BENCHMARK", "Benchmark interrupted", e);
+            return "Benchmark interrupted.";
+        } finally {
+            Trace.endSection();
+        }
     }
 }

@@ -1,39 +1,57 @@
 #include <jni.h>
 #include <string>
-#include <algorithm>
+#include <cstring>
 #include <time.h>
 #include <android/log.h>
 
-static char complement(char c) {
-    switch (c) {
-        case 'A': case 'a': return 'T';
-        case 'T': case 't': return 'A';
-        case 'G': case 'g': return 'C';
-        case 'C': case 'c': return 'G';
-        case 'M': case 'm': return 'K';
-        case 'R': case 'r': return 'Y';
-        case 'W': case 'w': return 'W';
-        case 'S': case 's': return 'S';
-        case 'Y': case 'y': return 'R';
-        case 'K': case 'k': return 'M';
-        case 'V': case 'v': return 'B';
-        case 'H': case 'h': return 'D';
-        case 'D': case 'd': return 'H';
-        case 'B': case 'b': return 'V';
-        case 'N': case 'n': return 'N';
-        default: return c;
+// Pre-computed lookup tables (like TCLBG)
+static unsigned char byte_lookup[256];
+static unsigned short word_lookup[65536];
+
+// Initialize lookup tables once
+static void init_lookup_tables() {
+    static bool initialized = false;
+    if (initialized) return;
+    initialized = true;
+
+    // Initialize byte lookup with identity
+    for (int i = 0; i < 256; i++) {
+        byte_lookup[i] = i;
+    }
+
+    // Set up complement mappings (matches TCLBG's "acbdghkmnsrutwvy" -> "TGVHCDMKNSYAAWBR")
+    const char *from = "acbdghkmnsrutwvyACBDGHKMNSRUTWVY";
+    const char *to   = "TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR";
+
+    for (int i = 0; from[i] && to[i]; i++) {
+        byte_lookup[(unsigned char)from[i]] = to[i];
+    }
+
+    // Build word lookup table (process 2 bytes at once)
+    for (int i = 0; i < 256; i++) {
+        for (int j = 0; j < 256; j++) {
+            word_lookup[(i << 8) | j] = (byte_lookup[j] << 8) | byte_lookup[i];
+        }
     }
 }
 
-static void reverse_complement(std::string& seq) {
-    int len = seq.length();
-    for (int i = 0, j = len - 1; i < j; i++, j--) {
-        char temp = complement(seq[i]);
-        seq[i] = complement(seq[j]);
-        seq[j] = temp;
+static void reverse_complement(char* data, size_t size) {
+    // Process 2 bytes at a time using shorts (like TCLBG)
+    short *bot = (short *)data;
+    short *top = (short *)(data + size - 2);
+
+    while (bot < top) {
+        short tmp = word_lookup[*(unsigned short*)bot];
+        *(unsigned short*)bot = word_lookup[*(unsigned short*)top];
+        *(unsigned short*)top = tmp;
+        bot++;
+        top--;
     }
-    if (len % 2 == 1) {
-        seq[len / 2] = complement(seq[len / 2]);
+
+    // Handle odd byte in the middle if size is odd
+    if (size & 1) {
+        size_t mid = size / 2;
+        data[mid] = byte_lookup[(unsigned char)data[mid]];
     }
 }
 
@@ -43,17 +61,27 @@ Java_com_example_benchlib_NativeBenchmarks_runRevCompBenchmarkCpp(
         jclass clazz,
         jstring fastaInput) {
 
+    init_lookup_tables();
+
     clock_t start = clock();
-    int iterations = 1000;
+    int iterations = 1;  // FIXED: Match TCLBG (runs once)
 
     const char *input = env->GetStringUTFChars(fastaInput, nullptr);
-    std::string original(input);
-    env->ReleaseStringUTFChars(fastaInput, input);
+    size_t len = strlen(input);
+
+    // Allocate working buffer
+    char *buffer = new char[len + 1];
 
     for (int iter = 0; iter < iterations; iter++) {
-        std::string seq = original;
-        reverse_complement(seq);
+        // Copy input to working buffer
+        memcpy(buffer, input, len);
+        buffer[len] = '\0';
+
+        reverse_complement(buffer, len);
     }
+
+    delete[] buffer;
+    env->ReleaseStringUTFChars(fastaInput, input);
 
     clock_t end = clock();
     long duration = ((end - start) * 1000) / CLOCKS_PER_SEC;
@@ -62,9 +90,9 @@ Java_com_example_benchlib_NativeBenchmarks_runRevCompBenchmarkCpp(
                         "RevComp C++ completed: %ldms (%d iterations)",
                         duration, iterations);
 
-    char buffer[256];
-    snprintf(buffer, sizeof(buffer),
+    char result[256];
+    snprintf(result, sizeof(result),
              "RevComp C++ completed: %ldms (%d iterations)",
              duration, iterations);
-    return env->NewStringUTF(buffer);
+    return env->NewStringUTF(result);
 }

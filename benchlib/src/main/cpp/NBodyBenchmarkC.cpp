@@ -14,31 +14,54 @@ struct Body {
 };
 
 static void advance(Body* bodies, int nbodies, double dt) {
+    // Phase 1: Calculate all position differences and distances
+    constexpr int N = 10; // (5 * 4) / 2 = 10 pairs
+    double r[N][3];
+    double mag[N];
+
+    int idx = 0;
     for (int i = 0; i < nbodies; i++) {
-        Body& b = bodies[i];
         for (int j = i + 1; j < nbodies; j++) {
-            Body& b2 = bodies[j];
-            double dx = b.x - b2.x;
-            double dy = b.y - b2.y;
-            double dz = b.z - b2.z;
-            double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-            double mag = dt / (distance * distance * distance);
-
-            b.vx -= dx * b2.mass * mag;
-            b.vy -= dy * b2.mass * mag;
-            b.vz -= dz * b2.mass * mag;
-
-            b2.vx += dx * b.mass * mag;
-            b2.vy += dy * b.mass * mag;
-            b2.vz += dz * b.mass * mag;
+            r[idx][0] = bodies[i].x - bodies[j].x;
+            r[idx][1] = bodies[i].y - bodies[j].y;
+            r[idx][2] = bodies[i].z - bodies[j].z;
+            idx++;
         }
     }
 
+    // Phase 2: Calculate magnitudes
+    // Note: Without SIMD, we use regular sqrt, but match the structure
+    for (int i = 0; i < N; i++) {
+        double dsquared = r[i][0] * r[i][0] + r[i][1] * r[i][1] + r[i][2] * r[i][2];
+        double distance = std::sqrt(dsquared);
+        mag[i] = dt / (dsquared * distance);
+    }
+
+    // Phase 3: Update velocities
+    idx = 0;
     for (int i = 0; i < nbodies; i++) {
-        Body& b = bodies[i];
-        b.x += dt * b.vx;
-        b.y += dt * b.vy;
-        b.z += dt * b.vz;
+        for (int j = i + 1; j < nbodies; j++) {
+            double xmag = r[idx][0] * mag[idx];
+            double ymag = r[idx][1] * mag[idx];
+            double zmag = r[idx][2] * mag[idx];
+
+            bodies[i].vx -= xmag * bodies[j].mass;
+            bodies[i].vy -= ymag * bodies[j].mass;
+            bodies[i].vz -= zmag * bodies[j].mass;
+
+            bodies[j].vx += xmag * bodies[i].mass;
+            bodies[j].vy += ymag * bodies[i].mass;
+            bodies[j].vz += zmag * bodies[i].mass;
+
+            idx++;
+        }
+    }
+
+    // Phase 4: Update positions
+    for (int i = 0; i < nbodies; i++) {
+        bodies[i].x += dt * bodies[i].vx;
+        bodies[i].y += dt * bodies[i].vy;
+        bodies[i].z += dt * bodies[i].vz;
     }
 }
 
@@ -82,7 +105,7 @@ Java_com_example_benchlib_NativeBenchmarks_runNBodyBenchmarkCpp(
         jint n) {
 
     clock_t start = clock();
-    int iterations = 143;
+    int iterations = 1;  // FIXED: Only run once like TCLBG
 
     Body bodies[5] = {
             {0, 0, 0, 0, 0, 0, SOLAR_MASS},
@@ -101,6 +124,7 @@ Java_com_example_benchlib_NativeBenchmarks_runNBodyBenchmarkCpp(
     };
 
     for (int iter = 0; iter < iterations; iter++) {
+        // FIXED: Call offset_momentum only once at start
         offset_momentum(bodies, 5);
         energy(bodies, 5);
 

@@ -3,11 +3,11 @@ project(benchlib LANGUAGES C CXX)
 
 set(BENCHLIB_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# Optional: keep these, but they only matter if build type is Release
+# Optional optimizations
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
-# Force optimization for all builds (debug + release)
+# Force optimization for all builds
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -ffast-math -funroll-loops")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -funroll-loops")
 
@@ -35,6 +35,11 @@ set(JNI_BRIDGE
         ${BENCHLIB_CPP_DIR}/native-lib.cpp
 )
 
+
+
+# ==============================
+# Main native library
+# ==============================
 add_library(nativebenchmarks SHARED
         ${JNI_BRIDGE}
         ${NATIVE_C_SOURCES}
@@ -44,4 +49,8 @@ add_library(nativebenchmarks SHARED
 include_directories(${BENCHLIB_CPP_DIR})
 
 find_library(log-lib log)
-target_link_libraries(nativebenchmarks android ${log-lib})
+
+target_link_libraries(nativebenchmarks
+        android
+        ${log-lib}
+)
