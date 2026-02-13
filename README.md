@@ -27,7 +27,7 @@ Mobile devices operate under strict battery constraints, making energy efficienc
 2. **RQ2:** Do specific languages perform better for CPU-bound tasks versus memory-bound tasks on Android?
 3. **RQ3:** Is there a consistent performance and energy ranking across languages?
 
-## 🔬 Methodology
+## Methodology
 
 ### Benchmarks
 Six standardized benchmarks from The Computer Language Benchmarks Game (TCLBG):
@@ -59,7 +59,7 @@ Six standardized benchmarks from The Computer Language Benchmarks Game (TCLBG):
 - Omnibus tests (ANOVA, Welch ANOVA, Kruskal-Wallis)
 - Post-hoc comparisons (Tukey HSD, Dunn's test with Bonferroni correction)
 
-## 📊 Key Findings
+## Key Findings
 
 ### Energy Efficiency
 - **Java and Kotlin** showed statistical energy equivalence across all six benchmarks
@@ -79,7 +79,7 @@ Real battery drain measurements showed language choice can affect device usage t
 - FannkuchRedux: 0.150% (C/C++) vs 0.650% (JavaScript)
 - Mandelbrot: 0.147% (C) vs 0.558% (JavaScript)
 
-## 🛠️ Technologies Used
+## Technologies Used
 
 - **Languages:** Java, Kotlin, C, C++, JavaScript
 - **Android Tools:** Android NDK, JUnit, ADB, Perfetto
@@ -87,7 +87,7 @@ Real battery drain measurements showed language choice can affect device usage t
 - **Statistical Analysis:** Python (SciPy, Pandas, NumPy)
 - **Automation:** Bash scripting, Python automation framework
 
-## 🚀 Running the Benchmarks
+## Running the Benchmarks
 
 ### Prerequisites
 ```bash
@@ -120,7 +120,7 @@ python automation/run_benchmarks.py
 ./gradlew connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.benchmarks.MandelbrotTest
 ```
 
-## 📈 Results & Visualizations
+## Results & Visualizations
 
 The study generated comprehensive visualizations including:
 - Execution time and energy consumption comparisons
@@ -131,7 +131,7 @@ The study generated comprehensive visualizations including:
 
 See the [full paper](./docs/NYUAD_CS_CapstoneReport_Naya_AlAfifi.pdf) for detailed results and visualizations.
 
-## 💡 Practical Implications
+## Practical Implications
 
 ### For Android Developers:
 
@@ -155,7 +155,7 @@ See the [full paper](./docs/NYUAD_CS_CapstoneReport_Naya_AlAfifi.pdf) for detail
    - Measure actual device-level energy use
    - Consider development velocity vs. performance gains
 
-## 📚 References
+## References
 
 Based on research including:
 - Pereira et al. (2017) - Energy efficiency across programming languages
@@ -163,24 +163,24 @@ Based on research including:
 - Green Software Lab - Energy-Benchmark-Languages-Android
 - Rua & Saraiva (2023) - E-MANAFA profiling tool
 
-## 🤝 Contributing
+## Contributing
 
 This was a capstone research project, but feedback and suggestions are welcome! Feel free to:
 - Open issues for questions or discussions
 - Suggest additional benchmarks or languages
 - Share replication results on different devices
 
-## 📧 Contact
+## Contact
 
 **Naya Al Afifi**  
 Computer Science, NYUAD  
 na3266@nyu.edu
 
-## 📝 License
+## License
 
 MIT License - See LICENSE file for details
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Special thanks to:
 - **Advisors:** João Paulo Fernandes and Karim Ali
